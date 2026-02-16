@@ -1,0 +1,167 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// User model - stores Strava auth data
+model User {
+  id             String   @id @default(cuid())
+  stravaId       Int      @unique
+  accessToken    String
+  refreshToken   String
+  tokenExpiry    BigInt
+  lastSyncedAt   DateTime? // Last time runs were synced from Strava
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  raceGoals     RaceGoal[]
+  trainingPlans TrainingPlan[]
+  activities    Activity[]
+  gear          Gear[]
+}
+
+// Race Goal model - stores user's race goals
+model RaceGoal {
+  id           String   @id @default(cuid())
+  userId       String
+  date         DateTime
+  startDate    DateTime? // When to start training (defaults to creation date if not set)
+  distance     String // '5K', '10K', 'Half Marathon', 'Marathon'
+  runsPerWeek  Int      @default(4)
+  trainingDays Json?    // Array of weekday numbers [0=Mon, 1=Tue, ... 6=Sun] e.g., [0, 2, 4, 6]
+  targetTime   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trainingPlans TrainingPlan[]
+
+  @@index([userId])
+}
+
+// Training Plan model - stores generated training plans
+model TrainingPlan {
+  id                  String   @id @default(cuid())
+  userId              String
+  raceGoalId          String
+  weeksUntilRace      Int
+  currentFitness      String
+  estimatedRaceTime   String
+  recommendations     String[] // Array of recommendation strings
+  generatedDate       DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  raceGoal    RaceGoal     @relation(fields: [raceGoalId], references: [id], onDelete: Cascade)
+  weeklyPlans WeeklyPlan[]
+
+  @@index([userId])
+  @@index([raceGoalId])
+}
+
+// Weekly Plan model - stores weekly training plans
+model WeeklyPlan {
+  id              String   @id @default(cuid())
+  trainingPlanId  String
+  weekNumber      Int
+  weekStartDate   DateTime
+  focus           String
+  totalKilometers Float
+  notes           String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  trainingPlan TrainingPlan @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+  workouts     Workout[]
+
+  @@index([trainingPlanId])
+}
+
+// Workout model - stores individual workouts
+model Workout {
+  id           String   @id @default(cuid())
+  weeklyPlanId String
+  day          String
+  type         String // 'Easy Run', 'Long Run', 'Tempo Run', 'Intervals', 'Recovery Run', 'Rest', 'Cross Training', 'Race Day'
+  distance     Float?
+  description  String
+  intensity    String // 'Low', 'Medium', 'High'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  weeklyPlan WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
+
+  @@index([weeklyPlanId])
+}
+
+// Activity model - stores cached Strava activities/runs
+model Activity {
+  id                  String   @id @default(cuid())
+  userId              String
+  stravaId            BigInt   @unique // Strava's activity ID
+  name                String
+  distance            Float    // meters
+  movingTime          Int      // seconds
+  elapsedTime         Int      // seconds
+  totalElevationGain  Float    // meters
+  startDate           DateTime
+  startDateLocal      DateTime
+  timezone            String
+  averageSpeed        Float    // m/s
+  maxSpeed            Float    // m/s
+  averageHeartrate    Float?
+  maxHeartrate        Float?
+  sportType           String   // 'Run', 'Ride', etc.
+  workoutType         Int?     // Strava workout type
+  summaryPolyline     String?  // Encoded polyline for map
+  startLatlng         Json?    // [lat, lng]
+  endLatlng           Json?    // [lat, lng]
+  kudosCount          Int      @default(0) // Number of kudos on activity
+  gearId              String?  // Strava gear ID (e.g., shoes)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startDate])
+  @@index([sportType])
+  @@index([userId, startDate])
+  @@index([userId, sportType, startDate]) // Composite index for filtered queries
+  @@index([stravaId]) // Faster lookups during sync
+}
+
+// Gear model - stores cached Strava gear (shoes, bikes)
+model Gear {
+  id            String   @id // Strava gear ID (e.g., "g12345")
+  userId        String
+  name          String
+  brandName     String?
+  modelName     String?
+  description   String?
+  distance      Float    // Total distance in meters
+  primary       Boolean  @default(false)
+  retired       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
