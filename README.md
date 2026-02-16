@@ -1,11 +1,11 @@
 # 🏃‍♂️ Runnr — Simple running dashboard
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Next.js](https://img.shields.io/badge/Next.js-15-informational?logo=nextdotjs)](https://nextjs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-%233178C6.svg?logo=typescript)]
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Next.js](https://img.shields.io/badge/Next.js-15-informational?logo=nextdotjs)](https://nextjs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-%233178C6.svg?logo=typescript)](https://www.typescriptlang.org/)
 
 Runnr is a lightweight, PWA-capable running dashboard built with Next.js + TypeScript. It syncs with Strava to visualize routes, track gear and personal records, and provides race predictions, pacing strategies, and training plans.
 
 <p align="center">
-  <img src="./public/dashboard-rounded.svg" alt="Runnr Dashboard" width="900">
+  <img src="./public/dashboard.png" alt="Runnr Dashboard" style="width:900px; border-radius:12px; box-shadow: 0 8px 30px rgba(2,6,23,0.12);">
 </p>
 
 ## Quick highlights
