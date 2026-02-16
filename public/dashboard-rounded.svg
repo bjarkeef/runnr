@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <clipPath id="round-clip">
+      <rect x="0" y="0" width="1280" height="720" rx="18" ry="18"/>
+    </clipPath>
+  </defs>
+  <image href="dashboard.png" width="1280" height="720" clip-path="url(#round-clip)" preserveAspectRatio="xMidYMid slice"/>
+</svg>
