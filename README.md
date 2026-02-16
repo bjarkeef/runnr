@@ -4,9 +4,10 @@
 
 Runnr is a lightweight, PWA-capable running dashboard built with Next.js + TypeScript. It syncs with Strava to visualize routes, track gear and personal records, and provides race predictions, pacing strategies, and training plans.
 
-<p align="center">
-  <img src="./public/dashboard.png" alt="Runnr Dashboard" style="width:900px; border-radius:12px; box-shadow: 0 8px 30px rgba(2,6,23,0.12);">
-</p>
+### Why I built Runnr
+I've started ramping up my running lately, and Runnr started as a fun side project to stay motivated — plus a chance to tinker with Strava's API.
+
+<img src="./public/dashboard.png" alt="Runnr Dashboard">
 
 ## Quick highlights
 
@@ -15,7 +16,6 @@ Runnr is a lightweight, PWA-capable running dashboard built with Next.js + TypeS
 - **Personal Records**: Automatically detects and tracks your PRs across common distances (1k to Marathon).
 - **Kudos Analytics**: Monitor your social engagement and community support.
 - **Gear Tracking**: Keep an eye on your shoe distance (km) and health.
-- **Animated Charts**: Visualize your monthly distance and training distribution.
 
 ### 🎯 Race Predictions & Strategy
 - **Race Predictions**: Get realistic race time estimates based on your actual training volume and intensity.
@@ -185,14 +185,6 @@ Runnr is a lightweight, PWA-capable running dashboard built with Next.js + TypeS
 - Cookies storing tokens are `httpOnly` and `secure` in production
 - OAuth tokens are securely stored and refreshed automatically
 
-## Contributing
-
-Contributions, issues, and feature requests are welcome! Please open a GitHub issue first for major work.
-
-- Fork the repo and create a feature branch
-- Run the app locally and add tests for new behavior
-- Ensure code follows the project's TypeScript/linting standards
-- Open a PR with a clear description and linked issue
 
 ## 📄 License
 
