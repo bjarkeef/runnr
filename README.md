@@ -178,69 +178,12 @@ Runnr is a lightweight, PWA-capable running dashboard built with Next.js + TypeS
    - Go to [strava.com/settings/api](https://www.strava.com/settings/api)
    - Update **Authorization Callback Domain**: `your-app.vercel.app`
 
-### Deployment Troubleshooting
-
-**Prisma Client not generated:**
-```bash
-vercel exec -- bunx prisma generate
-```
-
-**Database migration errors:**
-```bash
-bunx prisma migrate reset --force
-bunx prisma migrate deploy
-```
-
-**Database connection issues:**
-- Verify all Prisma environment variables are set correctly
-- Ensure `DIRECT_URL` is used for migrations, `DATABASE_URL` for queries
-- Check database provider status page
 
 ## 🔒 Security & Privacy
 - Store all secrets only in environment/config secrets—never commit them to version control
 - Use server-only env variables for sensitive keys (e.g., `STRAVA_CLIENT_SECRET`, `OPENROUTESERVICE_API_KEY`)
 - Cookies storing tokens are `httpOnly` and `secure` in production
 - OAuth tokens are securely stored and refreshed automatically
-
-## Troubleshooting
-
-### "Invalid Auth" Error
-- Ensure `STRAVA_REDIRECT_URI` exactly matches your Strava app settings
-- Verify `localhost` is set as the Authorization Callback Domain in Strava settings (for local development)
-
-### Database Connection Timeout
-- If using a serverless database (Neon, Prisma Cloud), ensure `DATABASE_URL` is the pooled connection string
-- Check database provider status and network connectivity
-- Verify credentials are correct
-
-### Strava Sync Not Working
-- Check that `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` are correct
-- Verify the user has authorized the app at `/api/auth/login`
-- Check browser network tab for API response errors
-
-### Build Failures
-- Run `npm install` to ensure dependencies are installed
-- Run `npx prisma generate` to regenerate Prisma Client
-- Check that all required environment variables are set
-
-## Roadmap
-
-**Short-term**
-- ✅ Fix server API TypeScript typings and add tests
-- ✅ Improve deployment documentation
-- Expand race prediction algorithms
-- Add more training plan templates
-
-**Medium-term**
-- Multi-activity support (cycling, swimming, etc.)
-- Data export (CSV/GPX)
-- Advanced analytics and trend analysis
-- Privacy auditing tools
-
-**Long-term**
-- Team/group support
-- Scaling for large datasets
-- Mobile app integration
 
 ## Contributing
 
