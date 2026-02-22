@@ -91,6 +91,10 @@ I've started ramping up my running lately, and Runnr started as a fun side proje
 
    # Route Planning
    OPENROUTESERVICE_API_KEY="your_openrouteservice_key"
+
+   # Optional: control starting center for route planner (defaults to Odense, DK)
+   NEXT_PUBLIC_ROUTE_PLANNER_LAT="55.4038"
+   NEXT_PUBLIC_ROUTE_PLANNER_LNG="10.4024"
    ```
    
    **⚠️ Do NOT commit `.env.local` - store secrets in environment/platform secrets only in production**

@@ -134,6 +134,17 @@ export default function RoutePlannerContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label htmlFor="distance" className="text-sm font-medium">
+                  Target Distance
+                </label>
+                <Badge variant="warning" className="ml-2">
+                  WIP
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                Experimental feature; loops are approximate and may not be perfect.
+              </p>
               <div>
                 <label htmlFor="distance" className="text-sm font-medium">
                   Target Distance
