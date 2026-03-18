@@ -1,199 +1,76 @@
-# 🏃‍♂️ Runnr — Simple running dashboard
+# Runnr
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Next.js](https://img.shields.io/badge/Next.js-15-informational?logo=nextdotjs)](https://nextjs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-%233178C6.svg?logo=typescript)](https://www.typescriptlang.org/)
 
-Runnr is a lightweight, PWA-capable running dashboard built with Next.js + TypeScript. It syncs with Strava to visualize routes, track gear and personal records, and provides race predictions, pacing strategies, and training plans.
+Runnr is a Strava-connected running dashboard built with Next.js and TypeScript.
 
-### Why I built Runnr
-I've started ramping up my running lately, and Runnr started as a fun side project to stay motivated — plus a chance to tinker with Strava's API.
+It helps you track training consistency, visualize routes, monitor gear, and generate race predictions from your run history.
 
-<img src="./public/dashboard.png" alt="Runnr Dashboard">
+![Runnr dashboard](./public/dashboard.png)
 
-## Quick highlights
+## Quick Start
 
-### 📊 Comprehensive Stats & Insights
-- **Weekly Streaks**: Track your consistency with week-by-week progress.
-- **Personal Records**: Automatically detects and tracks your PRs across common distances (1k to Marathon).
-- **Kudos Analytics**: Monitor your social engagement and community support.
-- **Gear Tracking**: Keep an eye on your shoe distance (km) and health.
+1. Clone and install:
 
-### 🎯 Race Predictions & Strategy
-- **Race Predictions**: Get realistic race time estimates based on your actual training volume and intensity.
-- **Pacing Strategies**: Generate even, negative, or positive split strategies for your next race.
-- **Global Performance**: Compare your times against global and regional runner averages to see where you stand.
-- **Training Plans**: Customized training insights based on your performance data.
-
-### 🗺️ Route Planner (WIP)
-- **Custom Route Generation**: Plan running routes on the map with your target distance.
-- **Interactive Mapping**: Click to set start locations and generate round-trip routes.
-- **Route Statistics**: Get distance, duration, and elevation data for planned routes.
-
-### 📈 Visual Analytics
-- **Activity Heatmap**: Visualize all your running routes on an interactive map.
-- **Today's Summary**: A quick snapshot of your latest run, weekly progress, and upcoming goals right on the dashboard.
-
-## 🛠️ Tech Stack
-
-- **Framework**: [Next.js 15](https://nextjs.org/) (App Router, Turbopack)
-- **Language**: TypeScript
-- **Database**: [PostgreSQL](https://www.postgresql.org/) with [Prisma ORM](https://www.prisma.io/)
-- **UI & Styling**: [Tailwind CSS](https://tailwindcss.com/), [Shadcn UI](https://ui.shadcn.com/)
-- **Charts**: [Recharts](https://recharts.org/)
-- **PWA**: Service Worker + Web App Manifest (offline / installable)
-- **External APIs**: [Strava API v3](https://developers.strava.com/), [OpenRouteService](https://openrouteservice.org/)
-- **State Management**: React Context
-- **Date Utilities**: [date-fns](https://date-fns.org/)
-- **Runtime**: Node.js 20.x
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js 20+
-- A Strava account (for API credentials)
-- A PostgreSQL database (local or cloud-hosted)
-
-### Local Development Setup
-
-1. **Clone the repository:**
    ```bash
    git clone https://github.com/bjarkeef/runnr.git
    cd runnr
-   ```
-
-2. **Install dependencies:**
-   ```bash
    npm install
-   # or
-   bun install
    ```
 
-3. **Configure Strava API:**
-   - Log in to [Strava](https://www.strava.com/login)
-   - Go to [Strava API Settings](https://www.strava.com/settings/api)
-   - Create a new application with these details:
-     - **Application Name**: `Runnr` (or your preferred name)
-     - **Category**: `Training`
-     - **Website**: `http://localhost:3000`
-     - **Authorization Callback Domain**: `localhost`
-   - Copy your **Client ID** and **Client Secret**
+2. Copy environment file:
 
-4. **Environment Setup:**
-   Create a `.env.local` file in the root directory:
-   ```env
-   # Database
-   DATABASE_URL="postgresql://user:password@host:port/dbname"
-   DIRECT_URL="postgresql://user:password@host:port/dbname"
-
-   # Strava OAuth
-   STRAVA_CLIENT_ID="your_client_id"
-   STRAVA_CLIENT_SECRET="your_client_secret"
-   STRAVA_REDIRECT_URI="http://localhost:3000/api/auth/callback"
-
-   # Route Planning
-   OPENROUTESERVICE_API_KEY="your_openrouteservice_key"
-
-   # Optional: control starting center for route planner (defaults to Odense, DK)
-   NEXT_PUBLIC_ROUTE_PLANNER_LAT="55.4038"
-   NEXT_PUBLIC_ROUTE_PLANNER_LNG="10.4024"
+   ```powershell
+   Copy-Item .env.example .env.local
    ```
-   
-   **⚠️ Do NOT commit `.env.local` - store secrets in environment/platform secrets only in production**
 
-5. **Initialize Database:**
    ```bash
-   npx prisma generate
-   npx prisma db push
+   cp .env.example .env.local
    ```
 
-6. **Run Development Server:**
+3. Fill in required values in `.env.local`:
+   - `DATABASE_URL`
+   - `DIRECT_URL`
+   - `STRAVA_CLIENT_ID`
+   - `STRAVA_CLIENT_SECRET`
+   - `STRAVA_REDIRECT_URI` (defaults to `http://localhost:3000/api/auth/callback`)
+
+   Optional:
+   - `OPENROUTESERVICE_API_KEY` (route planner)
+
+4. Prepare database schema:
+
+   ```bash
+   npm run db:migrate
+   ```
+
+5. Start dev server:
+
    ```bash
    npm run dev
-   # or
-   bun run dev
    ```
 
-7. **Open the app:**
-   Navigate to [http://localhost:3000](http://localhost:3000)
+6. Open [http://localhost:3000](http://localhost:3000) and connect your Strava account.
 
-### First-Time Synchronization
+Tip: if you only have one local PostgreSQL URL, use the same value for `DATABASE_URL` and `DIRECT_URL`.
 
-1. Open the app in your browser
-2. Click **Connect with Strava**
-3. Authorize the app to access your Strava data
-4. You'll be redirected back to the app
-5. Navigate to **Settings** or wait for the initial sync to complete
-6. Visit the **Stats** page to see your running history
+## Docs
 
-## 📋 Environment Variables Reference
+- Setup guide: [docs/getting-started.md](docs/getting-started.md)
+- Database options (local, Docker, cloud): [docs/database-setup.md](docs/database-setup.md)
+- Project structure and architecture: [docs/app-overview.md](docs/app-overview.md)
+- Deployment: [docs/deployment.md](docs/deployment.md)
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | ✅ | Prisma database connection string (pooled connection) |
-| `DIRECT_URL` | ✅ | Direct database connection for migrations |
-| `STRAVA_CLIENT_ID` | ✅ | Your Strava OAuth client ID |
-| `STRAVA_CLIENT_SECRET` | ✅ | Your Strava OAuth client secret (keep secret!) |
-| `STRAVA_REDIRECT_URI` | ✅ | OAuth callback URL (must match Strava settings) |
-| `OPENROUTESERVICE_API_KEY` | ✅ | API key for route planning and elevation data |
+## Available Scripts
 
-## 🚀 Deployment
+- `npm run dev` - run local development server
+- `npm run build` - build production bundle
+- `npm run start` - run production server
+- `npm run lint` - run ESLint
+- `npm run db:migrate` - apply Prisma migrations
+- `npm run db:push` - push schema directly (alternative for local dev)
+- `npm run db:studio` - open Prisma Studio
 
-### Deploy to Vercel
+## License
 
-1. **Prerequisites:**
-   - Vercel account at [vercel.com](https://vercel.com)
-   - Prisma Cloud account at [cloud.prisma.io](https://cloud.prisma.io) (optional, for managed PostgreSQL)
-   - Strava OAuth app created
-
-2. **Set Up PostgreSQL Database:**
-   - Use Prisma Cloud, Neon, or any PostgreSQL provider
-   - Obtain connection strings:
-     - `DATABASE_URL` (pooled connection)
-     - `DIRECT_URL` (direct connection for migrations)
-
-3. **Deploy via GitHub Integration:**
-   - Push your code to GitHub
-   - Go to [vercel.com/new](https://vercel.com/new)
-   - Import your GitHub repository
-   - Configure:
-     - **Framework Preset**: Next.js
-     - **Build Command**: `npm run build` (or `bun run build`)
-     - **Output Directory**: `.next`
-
-4. **Configure Environment Variables in Vercel:**
-   ```
-   STRAVA_CLIENT_ID=<your_strava_client_id>
-   STRAVA_CLIENT_SECRET=<your_strava_client_secret>
-   STRAVA_REDIRECT_URI=https://your-app.vercel.app/api/auth/callback
-   OPENROUTESERVICE_API_KEY=<your_api_key>
-   DATABASE_URL=<from_database_provider>
-   DIRECT_URL=<from_database_provider>
-   ```
-   
-   **⚠️ Important**: Update your Strava OAuth redirect URI to match your Vercel domain!
-
-5. **Run Database Migrations:**
-   After first deployment, run migrations:
-   ```bash
-   vercel env pull .env.local
-   bunx prisma migrate deploy
-   ```
-
-6. **Update Strava OAuth Settings:**
-   - Go to [strava.com/settings/api](https://www.strava.com/settings/api)
-   - Update **Authorization Callback Domain**: `your-app.vercel.app`
-
-
-## 🔒 Security & Privacy
-- Store all secrets only in environment/config secrets—never commit them to version control
-- Use server-only env variables for sensitive keys (e.g., `STRAVA_CLIENT_SECRET`, `OPENROUTESERVICE_API_KEY`)
-- Cookies storing tokens are `httpOnly` and `secure` in production
-- OAuth tokens are securely stored and refreshed automatically
-
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-Maintained with ❤️ — PRs welcome!
+MIT. See [LICENSE](LICENSE).
