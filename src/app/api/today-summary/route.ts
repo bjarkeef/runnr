@@ -1,26 +1,19 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { startOfWeek, endOfWeek, subWeeks, formatDistanceToNow } from 'date-fns';
+import { getStoredTokens } from '@/lib/auth';
 
 export async function GET() {
     try {
-        const cookieStore = await cookies();
-        const storedTokens = cookieStore.get('runnr_strava_tokens')?.value;
-
-        if (!storedTokens) {
+        const auth = await getStoredTokens();
+        if (!auth) {
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
 
-        const tokens = JSON.parse(storedTokens);
-        const stravaId = tokens.athleteId || tokens.athlete?.id;
-
-        if (!stravaId) {
-            return NextResponse.json({ error: 'Invalid authentication' }, { status: 400 });
-        }
+        const { stravaId } = auth;
 
         const user = await prisma.user.findUnique({
-            where: { stravaId: parseInt(stravaId) },
+            where: { stravaId },
             include: {
                 activities: {
                     orderBy: { startDate: 'desc' },
