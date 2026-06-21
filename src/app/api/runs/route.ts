@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { getStoredTokens } from '@/lib/auth';
 
 const SYNC_THRESHOLD_MS = 1000 * 60 * 60; // 1 hour
 const RUNS_PER_PAGE = 24;
@@ -10,34 +10,25 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || String(RUNS_PER_PAGE));
-    
-    const cookieStore = await cookies();
-    const storedTokens = cookieStore.get('runnr_strava_tokens')?.value;
 
-    if (!storedTokens) {
+    const auth = await getStoredTokens();
+    if (!auth) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const parsedTokens = JSON.parse(storedTokens);
-    const stravaId = parsedTokens.athleteId || parsedTokens.athlete?.id || parsedTokens.stravaId;
-    
-    if (!stravaId) {
-      return NextResponse.json({ 
-        error: 'Invalid token format - athleteId not found'
-      }, { status: 400 });
-    }
+    const { stravaId } = auth;
 
     // Count total runs for pagination
     const totalRuns = await prisma.activity.count({
       where: {
-        user: { stravaId: parseInt(stravaId) },
+        user: { stravaId },
         sportType: 'Run'
       }
     });
     
     // Find user with ONLY fields needed for runs list (no polyline/latlng - saves bandwidth!)
     const user = await prisma.user.findUnique({
-      where: { stravaId: parseInt(stravaId) },
+      where: { stravaId },
       select: {
         lastSyncedAt: true,
         activities: {

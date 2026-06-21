@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { refreshAccessToken, StravaTokens, StravaActivity } from '@/lib/strava';
+import { StravaActivity } from '@/lib/strava';
 import { calculateRacePredictions } from '@/lib/predictions';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 // In-memory cache for expensive historical calculations
 interface HistoricalCache {
@@ -136,41 +136,19 @@ function getTrainingMetrics(activities: StravaActivity[]) {
 }
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const storedTokens = cookieStore.get('runnr_strava_tokens')?.value;
-
-  if (!storedTokens) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  const auth = await getAuthenticatedUser();
+  if (!auth.success) {
+    return auth.response;
   }
 
   try {
-    let tokens: StravaTokens = JSON.parse(storedTokens);
-    const stravaId = tokens.athleteId || tokens.athlete?.id;
-    
-    if (!stravaId) {
-      return NextResponse.json({ error: 'Invalid authentication' }, { status: 400 });
-    }
-    
-    if (Date.now() > tokens.tokenExpiry) {
-      tokens = await refreshAccessToken(tokens.refresh_token, tokens.athleteId);
-      
-      // Update the cookie with new tokens
-      const cookieStore = await cookies();
-      cookieStore.set('runnr_strava_tokens', JSON.stringify(tokens), {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 365 * 24 * 60 * 60,
-        path: '/',
-      });
-    }
-    
     // Get user with ONLY fields needed for predictions (optimized query)
     // Fetch 18 months of data to support historical trend analysis (12 months trends + 6 month window)
     const eighteenMonthsAgo = new Date();
     eighteenMonthsAgo.setMonth(eighteenMonthsAgo.getMonth() - 18);
     
     const user = await prisma.user.findUnique({
-      where: { stravaId: parseInt(stravaId) },
+      where: { stravaId: auth.stravaId },
       select: {
         activities: {
           select: {
@@ -248,7 +226,7 @@ export async function GET() {
     const predictions = calculateRacePredictions(activities);
     
     // Calculate historical predictions for trend analysis (CACHED!)
-    const historicalPredictions = calculateHistoricalPredictions(activities, parseInt(stravaId));
+    const historicalPredictions = calculateHistoricalPredictions(activities, auth.stravaId);
     
     const response = NextResponse.json({
       predictions,

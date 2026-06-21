@@ -1,40 +1,19 @@
-﻿import { NextResponse } from 'next/server';
-import { refreshAccessToken, StravaTokens, StravaActivity } from '@/lib/strava';
-import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+import { StravaActivity } from '@/lib/strava';
 import { prisma } from '@/lib/prisma';
 import { calculateStats } from '@/lib/stats';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 export async function GET(request: Request) {
-  const cookieStore = await cookies();
-  const storedTokens = cookieStore.get('runnr_strava_tokens')?.value;
-
-  if (!storedTokens) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  const auth = await getAuthenticatedUser();
+  if (!auth.success) {
+    return auth.response;
   }
 
   try {
-    let tokens: StravaTokens = JSON.parse(storedTokens);
-    const stravaId = tokens.athleteId?.toString() || (tokens.athlete as { id?: number })?.id?.toString();
-
-    if (!stravaId) {
-      return NextResponse.json({ error: 'Invalid authentication' }, { status: 400 });
-    }
-
-    if (Date.now() > tokens.tokenExpiry) {
-      tokens = await refreshAccessToken(tokens.refresh_token, tokens.athleteId || 0);
-      cookieStore.set('runnr_strava_tokens', JSON.stringify(tokens), {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 365 * 24 * 60 * 60,
-        path: '/',
-      });
-    }
-
-    const athleteIdNum = parseInt(stravaId);
-
     // Fetch user and gear
     const user = await prisma.user.findUnique({
-      where: { stravaId: athleteIdNum },
+      where: { stravaId: auth.stravaId },
     });
 
     if (!user) {

@@ -1,32 +1,18 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
-import { refreshAccessToken, getAthleteProfile, type StravaTokens } from '@/lib/strava';
+import { getAthleteProfile } from '@/lib/strava';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const storedTokens = cookieStore.get('runnr_strava_tokens')?.value;
-
-    if (!storedTokens) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    let tokens: StravaTokens = JSON.parse(storedTokens);
-    const stravaId = tokens.athleteId || tokens.athlete?.id;
-
-    if (!stravaId) {
-      return NextResponse.json({ error: 'Invalid authentication' }, { status: 400 });
-    }
-
-    // Refresh token if needed
-    if (Date.now() > tokens.tokenExpiry) {
-      tokens = await refreshAccessToken(tokens.refresh_token, tokens.athleteId);
+    const auth = await getAuthenticatedUser();
+    if (!auth.success) {
+      return auth.response;
     }
 
     // Get user from database with comprehensive stats
     const user = await prisma.user.findUnique({
-      where: { stravaId: parseInt(stravaId) },
+      where: { stravaId: auth.stravaId },
       select: {
         id: true,
         stravaId: true,
@@ -48,7 +34,7 @@ export async function GET() {
     }
 
     // Get athlete profile from Strava
-    const athleteProfile = await getAthleteProfile(tokens.access_token);
+    const athleteProfile = await getAthleteProfile(auth.tokens.access_token);
 
     // Get database-wide statistics
     const [totalUsers, totalActivities, totalRaceGoals, totalTrainingPlans, totalGear] = await Promise.all([
@@ -123,10 +109,10 @@ export async function GET() {
       user: {
         id: user.id,
         stravaId: user.stravaId,
-        username: athleteProfile.username,
-        firstname: athleteProfile.firstname,
-        lastname: athleteProfile.lastname,
-        profile: athleteProfile.profile,
+        username: athleteProfile.username ?? null,
+        firstname: athleteProfile.firstname ?? null,
+        lastname: athleteProfile.lastname ?? null,
+        profile: athleteProfile.profile ?? null,
         memberSince: user.createdAt,
         lastUpdated: user.updatedAt,
         lastSynced: user.lastSyncedAt,
