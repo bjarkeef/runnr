@@ -24,7 +24,37 @@ interface RunWeather {
     condition: string;
     icon: string;
     feelsLike: string | null;
+    summary?: string | null;
+    precipLabel?: string | null;
+    windLabel?: string | null;
     fetchedAt?: string | null;
+}
+
+interface GearMoment {
+    key: string;
+    label: string;
+    detail?: string;
+    tone: 'record' | 'milestone' | 'info';
+}
+
+interface RunGear {
+    id: string;
+    name: string;
+    primary: boolean;
+    retired?: boolean;
+    distance: number;
+    brand_name?: string;
+    model_name?: string;
+    description?: string;
+    href?: string | null;
+    nickname?: string | null;
+    shoe_health?: 'good' | 'monitor' | 'replace' | null;
+    run_count?: number | null;
+    run_index?: number | null;
+    distance_before_km?: number | null;
+    distance_after_km?: number | null;
+    moments?: GearMoment[];
+    story_available?: boolean;
 }
 
 interface Activity {
@@ -44,15 +74,7 @@ interface Activity {
     description?: string;
     calories: number;
     weather?: RunWeather | null;
-    gear?: {
-        id: string;
-        name: string;
-        primary: boolean;
-        distance: number;
-        brand_name?: string;
-        model_name?: string;
-        description?: string;
-    };
+    gear?: RunGear | null;
     map: {
         polyline: string;
     };
@@ -83,22 +105,22 @@ interface Activity {
     }[];
 }
 
-function windLabel(windKmh: number | null): string | null {
-    if (windKmh == null) return null;
-    if (windKmh < 5) return 'Calm';
-    if (windKmh < 15) return 'Light breeze';
-    if (windKmh < 25) return 'Moderate';
-    if (windKmh < 40) return 'Strong';
-    return 'Very windy';
+function momentToneClass(tone: GearMoment['tone']): string {
+    if (tone === 'record') return 'border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-100';
+    if (tone === 'milestone') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100';
+    return 'border-border bg-muted/50 text-foreground';
 }
 
-function precipLabel(precipMm: number | null): string | null {
-    if (precipMm == null) return null;
-    if (precipMm < 0.1) return 'Dry';
-    if (precipMm < 1) return 'Trace / light';
-    if (precipMm < 3) return 'Light';
-    if (precipMm < 8) return 'Moderate';
-    return 'Heavy';
+function momentGlyph(tone: GearMoment['tone']): string {
+    if (tone === 'record') return '🏆';
+    if (tone === 'milestone') return '✨';
+    return '👟';
+}
+
+function healthLabel(h?: RunGear['shoe_health']): { text: string; className: string } {
+    if (h === 'replace') return { text: 'Replace soon', className: 'text-red-500' };
+    if (h === 'monitor') return { text: 'Monitor', className: 'text-orange-500' };
+    return { text: 'Good', className: 'text-green-500' };
 }
 
 export default function RunDetailPage() {
@@ -215,7 +237,7 @@ export default function RunDetailPage() {
                                 <div className="min-w-0">
                                     <CardTitle className="text-base sm:text-lg">Weather</CardTitle>
                                     <CardDescription className="text-xs sm:text-sm">
-                                        Conditions near start · historical snapshot
+                                        Near start · estimated from location & time
                                     </CardDescription>
                                 </div>
                             </div>
@@ -233,9 +255,17 @@ export default function RunDetailPage() {
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <p className="text-sm sm:text-base font-medium">{activity.weather.condition}</p>
+                        <div>
+                            <p className="text-sm sm:text-base font-medium">
+                                {activity.weather.summary ?? activity.weather.condition}
+                            </p>
+                            {activity.weather.summary && activity.weather.condition &&
+                                !activity.weather.summary.toLowerCase().includes(activity.weather.condition.toLowerCase()) && (
+                                <p className="text-xs text-muted-foreground mt-0.5">{activity.weather.condition}</p>
+                            )}
+                        </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div className="rounded-lg bg-muted/60 p-3">
                                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Temperature</p>
                                 <p className="text-sm sm:text-base font-semibold tabular-nums">
@@ -243,17 +273,20 @@ export default function RunDetailPage() {
                                         ? `${activity.weather.tempC.toFixed(1)} °C`
                                         : '—'}
                                 </p>
+                                {activity.weather.feelsLike && (
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">{activity.weather.feelsLike}</p>
+                                )}
                             </div>
                             <div className="rounded-lg bg-muted/60 p-3">
                                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Precipitation</p>
                                 <p className="text-sm sm:text-base font-semibold tabular-nums">
                                     {activity.weather.precipMm != null
-                                        ? `${activity.weather.precipMm.toFixed(1)} mm`
+                                        ? `${activity.weather.precipMm.toFixed(1)} mm / hr`
                                         : '—'}
                                 </p>
-                                {precipLabel(activity.weather.precipMm) && (
+                                {activity.weather.precipLabel && (
                                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                                        {precipLabel(activity.weather.precipMm)}
+                                        {activity.weather.precipLabel}
                                     </p>
                                 )}
                             </div>
@@ -264,25 +297,17 @@ export default function RunDetailPage() {
                                         ? `${activity.weather.windKmh.toFixed(0)} km/h`
                                         : '—'}
                                 </p>
-                                {windLabel(activity.weather.windKmh) && (
+                                {activity.weather.windLabel && (
                                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                                        {windLabel(activity.weather.windKmh)}
+                                        {activity.weather.windLabel}
                                     </p>
                                 )}
-                            </div>
-                            <div className="rounded-lg bg-muted/60 p-3">
-                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Code</p>
-                                <p className="text-sm sm:text-base font-semibold tabular-nums">
-                                    {activity.weather.weatherCode != null ? `WMO ${activity.weather.weatherCode}` : '—'}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">Open-Meteo</p>
                             </div>
                         </div>
 
                         <p className="text-[10px] sm:text-xs text-muted-foreground leading-relaxed">
-                            Weather is estimated at the activity start time and approximate GPS start location via{' '}
-                            <span className="font-medium">Open-Meteo</span> historical data (hourly resolution). Not
-                            official race weather; may differ slightly from what you felt on course.
+                            Snapshot at activity start from historical weather data (hourly). Not official race weather —
+                            conditions on course may have differed slightly.
                         </p>
                     </CardContent>
                 </Card>
@@ -294,61 +319,145 @@ export default function RunDetailPage() {
             {activity.gear && (
                 <Card className="border-l-4 border-l-primary">
                     <CardHeader className="pb-2 sm:pb-3">
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
                             <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                                 <span className="text-xl sm:text-2xl">👟</span>
                                 <span className="hidden sm:inline">Running Shoes</span>
                                 <span className="sm:hidden">Shoes</span>
                             </CardTitle>
-                            {activity.gear.primary && (
-                                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 sm:py-1 rounded-full font-medium whitespace-nowrap">
-                                    Primary
-                                </span>
-                            )}
+                            <div className="flex items-center gap-2">
+                                {activity.gear.primary && (
+                                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 sm:py-1 rounded-full font-medium whitespace-nowrap">
+                                        Primary
+                                    </span>
+                                )}
+                                {activity.gear.retired && (
+                                    <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 sm:py-1 rounded-full font-medium whitespace-nowrap">
+                                        Retired
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div>
-                            <p className="text-base sm:text-lg font-semibold">{activity.gear.name}</p>
-                            {(activity.gear.brand_name || activity.gear.model_name) && (
-                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                    {activity.gear.brand_name} {activity.gear.model_name}
-                                </p>
+                    <CardContent className="space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                            <div className="min-w-0">
+                                {activity.gear.href ? (
+                                    <Link
+                                        href={activity.gear.href}
+                                        className="group inline-flex flex-col gap-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                                    >
+                                        <span className="text-base sm:text-lg font-semibold group-hover:text-primary group-hover:underline underline-offset-2 decoration-primary/60 transition-colors">
+                                            {activity.gear.name}
+                                        </span>
+                                        {activity.gear.nickname && (
+                                            <span className="text-sm font-medium text-amber-800 dark:text-amber-200/90 italic">
+                                                “{activity.gear.nickname}”
+                                            </span>
+                                        )}
+                                        {(activity.gear.brand_name || activity.gear.model_name) && (
+                                            <span className="text-xs sm:text-sm text-muted-foreground">
+                                                {[activity.gear.brand_name, activity.gear.model_name].filter(Boolean).join(' ')}
+                                            </span>
+                                        )}
+                                        <span className="text-xs text-primary mt-1 font-medium opacity-90 group-hover:opacity-100">
+                                            View shoe details →
+                                        </span>
+                                    </Link>
+                                ) : (
+                                    <>
+                                        <p className="text-base sm:text-lg font-semibold">{activity.gear.name}</p>
+                                        {(activity.gear.brand_name || activity.gear.model_name) && (
+                                            <p className="text-xs sm:text-sm text-muted-foreground">
+                                                {activity.gear.brand_name} {activity.gear.model_name}
+                                            </p>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                            {activity.gear.href && activity.gear.story_available && (
+                                <Button variant="outline" size="sm" asChild className="flex-shrink-0 self-start">
+                                    <Link href={activity.gear.href}>Shoe story</Link>
+                                </Button>
                             )}
                         </div>
-                        
-                        <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-2">
+
+                        {/* Moments / records for this run on this pair */}
+                        {activity.gear.moments && activity.gear.moments.length > 0 && (
+                            <div className="space-y-2">
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                                    On this run
+                                </p>
+                                <ul className="space-y-2">
+                                    {activity.gear.moments.map((m) => (
+                                        <li
+                                            key={m.key}
+                                            className={`rounded-lg border px-3 py-2 text-sm ${momentToneClass(m.tone)}`}
+                                        >
+                                            <p className="font-medium flex items-start gap-1.5">
+                                                <span aria-hidden>{momentGlyph(m.tone)}</span>
+                                                <span>{m.label}</span>
+                                            </p>
+                                            {m.detail && (
+                                                <p className="text-xs opacity-80 mt-0.5 pl-6">{m.detail}</p>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-1">
                             <div className="flex items-center gap-1.5 sm:gap-2">
                                 <div className="p-1.5 sm:p-2 bg-muted rounded-lg flex-shrink-0">
                                     <span className="text-xl sm:text-2xl">📏</span>
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs text-muted-foreground">Total Distance</p>
+                                    <p className="text-xs text-muted-foreground">Lifetime mileage</p>
                                     <p className="text-sm sm:text-base font-semibold truncate">
                                         {(activity.gear.distance / 1000).toFixed(0)} km
                                     </p>
+                                    {activity.gear.distance_after_km != null &&
+                                        activity.gear.distance_before_km != null && (
+                                        <p className="text-[10px] text-muted-foreground truncate">
+                                            After this run: {activity.gear.distance_after_km.toFixed(0)} km
+                                            {activity.gear.distance_before_km > 0 &&
+                                                ` (was ${activity.gear.distance_before_km.toFixed(0)})`}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-1.5 sm:gap-2">
                                 <div className="p-1.5 sm:p-2 bg-muted rounded-lg flex-shrink-0">
                                     <span className="text-xl sm:text-2xl">⚠️</span>
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs text-muted-foreground">Shoe Health</p>
-                                    <p className="text-sm sm:text-base font-semibold truncate">
-                                        {activity.gear.distance > 800000 ? (
-                                            <span className="text-red-500">Replace Soon</span>
-                                        ) : activity.gear.distance > 600000 ? (
-                                            <span className="text-orange-500">Monitor</span>
-                                        ) : (
-                                            <span className="text-green-500">Good</span>
-                                        )}
+                                    <p className="text-xs text-muted-foreground">Shoe health</p>
+                                    <p className={`text-sm sm:text-base font-semibold truncate ${healthLabel(activity.gear.shoe_health).className}`}>
+                                        {healthLabel(activity.gear.shoe_health).text}
                                     </p>
                                 </div>
                             </div>
+
+                            {activity.gear.run_index != null && activity.gear.run_count != null && (
+                                <div className="flex items-center gap-1.5 sm:gap-2 col-span-2 sm:col-span-1">
+                                    <div className="p-1.5 sm:p-2 bg-muted rounded-lg flex-shrink-0">
+                                        <span className="text-xl sm:text-2xl">#</span>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-xs text-muted-foreground">Run on this pair</p>
+                                        <p className="text-sm sm:text-base font-semibold truncate">
+                                            {activity.gear.run_index}
+                                            <span className="text-muted-foreground font-normal">
+                                                {' '}/ {activity.gear.run_count}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        
+
                         {activity.gear.description && (
                             <div className="pt-2 border-t">
                                 <p className="text-xs sm:text-sm text-muted-foreground italic">
@@ -356,9 +465,14 @@ export default function RunDetailPage() {
                                 </p>
                             </div>
                         )}
-                        
-                        <div className="pt-2 text-xs text-muted-foreground">
-                            💡 Tip: Shoes last 800-1000 km
+
+                        <div className="pt-1 text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                            <span>💡 Typical shoe life: 800–1000 km</span>
+                            {activity.gear.href && (
+                                <Link href={activity.gear.href} className="text-primary hover:underline font-medium">
+                                    Open gear page
+                                </Link>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

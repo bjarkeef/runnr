@@ -17,6 +17,12 @@ export interface ActivityWeather extends WeatherSnapshot {
   icon: string;
   /** How conditions felt at that temp (rough bands) */
   feelsLike: string | null;
+  /** One-line runner summary, e.g. "Cool · slight rain" */
+  summary?: string | null;
+  /** Precipitation band label */
+  precipLabel?: string | null;
+  /** Wind band label */
+  windLabel?: string | null;
   /** Source timestamp when we fetched/cached */
   fetchedAt?: string | null;
 }
@@ -133,6 +139,29 @@ export function precipDescription(precipMm: number | null | undefined): string |
   return 'Heavy';
 }
 
+/** Short runner-friendly summary line, e.g. "Cool and rainy" */
+export function weatherSummaryLine(snap: WeatherSnapshot): string | null {
+  const parts: string[] = [];
+  if (snap.tempC != null) {
+    const feel = feelsLikeFromTemp(snap.tempC);
+    if (feel) parts.push(feel.toLowerCase());
+  }
+  const { condition } = weatherConditionFromCode(snap.weatherCode);
+  if (condition && condition !== 'Unknown') {
+    parts.push(condition.toLowerCase());
+  } else if (snap.precipMm != null && snap.precipMm >= 0.5) {
+    parts.push('wet');
+  }
+  if (snap.windKmh != null && snap.windKmh >= 25) {
+    parts.push('windy');
+  }
+  if (!parts.length) return null;
+  // "cool" + "slight rain" → "Cool and slight rain"
+  const [first, ...rest] = parts;
+  if (!rest.length) return first.charAt(0).toUpperCase() + first.slice(1);
+  return `${first.charAt(0).toUpperCase() + first.slice(1)} · ${rest.join(' · ')}`;
+}
+
 export function enrichWeatherSnapshot(
   snap: WeatherSnapshot,
   fetchedAt?: Date | string | null
@@ -143,6 +172,9 @@ export function enrichWeatherSnapshot(
     condition,
     icon,
     feelsLike: feelsLikeFromTemp(snap.tempC),
+    summary: weatherSummaryLine(snap),
+    precipLabel: precipDescription(snap.precipMm),
+    windLabel: windDescription(snap.windKmh),
     fetchedAt: fetchedAt
       ? typeof fetchedAt === 'string'
         ? fetchedAt
