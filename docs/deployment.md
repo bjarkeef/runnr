@@ -35,7 +35,7 @@ STRAVA_REDIRECT_URI=https://your-domain.com/api/auth/callback
 
 1. Import repository in Vercel.
 2. Framework preset: Next.js.
-3. Build command: `npm run build`.
+3. Build command: `npm run build` (default — do not override unless you keep migration behavior).
 4. Add environment variables:
 
 ```env
@@ -47,15 +47,25 @@ STRAVA_REDIRECT_URI=https://your-domain.com/api/auth/callback
 OPENROUTESERVICE_API_KEY=<optional>
 ```
 
-## 5. Run Migrations
+Both `DATABASE_URL` and `DIRECT_URL` are required on Vercel. Prisma uses `DIRECT_URL` for migrations (important for pooled providers like Neon/Supabase/Prisma Accelerate).
 
-Run Prisma migrations against production DB:
+## 5. Migrations On Every Deploy
+
+Migrations run **automatically** during `npm run build` when `VERCEL=1` (set by Vercel) or `CI=true`:
+
+1. `prisma migrate deploy` — applies any pending SQL in `prisma/migrations/`
+2. `prisma generate` — generates the Prisma client
+3. `next build` — builds the Next.js app
+
+If a migration fails, the **build fails** and the bad deploy is not shipped. That is intentional: schema and code stay in lockstep.
+
+Local builds skip migrate by default. To force it locally:
 
 ```bash
-npx prisma migrate deploy
+RUN_DB_MIGRATE=1 npm run build
+# or
+npm run db:migrate
 ```
-
-Run this in CI/CD or as a release step.
 
 ## 6. Verify
 

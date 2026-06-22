@@ -97,6 +97,7 @@ npm run db:studio
 
 In production:
 
-1. Run migrations (`prisma migrate deploy`) in your deploy pipeline.
-2. Keep `DATABASE_URL` and `DIRECT_URL` in platform secrets.
+1. Migrations run automatically on Vercel during `npm run build` (`prisma migrate deploy` when `VERCEL=1`).
+2. Keep `DATABASE_URL` and `DIRECT_URL` in platform secrets (both required; `DIRECT_URL` is used for migrations).
 3. Never commit `.env.local`.
+4. A failed migration fails the build on purpose so you never ship app code ahead of the database schema.
