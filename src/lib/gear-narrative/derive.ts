@@ -29,7 +29,7 @@ function emptyWeather(): WeatherBuckets {
   return { clearKm: 0, rainKm: 0, snowKm: 0, coldKm: 0, hotKm: 0, windyKm: 0 };
 }
 function emptyTime(): TimeBuckets {
-  return { dawnKm: 0, dayKm: 0, duskKm: 0, nightKm: 0 };
+  return { dawnKm: 0, dayKm: 0, duskKm: 0, nightKm: 0, hourKm: Array(24).fill(0) };
 }
 function emptySeason(): SeasonBuckets {
   return { springKm: 0, summerKm: 0, autumnKm: 0, winterKm: 0 };
@@ -144,11 +144,15 @@ function addWeather(b: WeatherBuckets, w: WeatherBucket, km: number) {
   else if (w === 'windy') b.windyKm += km;
 }
 
-function addTime(b: TimeBuckets, t: TimeBucket, km: number) {
+function addTime(b: TimeBuckets, t: TimeBucket, km: number, hour?: number) {
   if (t === 'dawn') b.dawnKm += km;
   else if (t === 'day') b.dayKm += km;
   else if (t === 'dusk') b.duskKm += km;
   else b.nightKm += km;
+  if (hour != null && hour >= 0 && hour < 24) {
+    if (!b.hourKm || b.hourKm.length !== 24) b.hourKm = Array(24).fill(0);
+    b.hourKm[hour] += km;
+  }
 }
 
 function addSeason(b: SeasonBuckets, s: SeasonBucket, km: number) {
@@ -284,10 +288,15 @@ function buildBuckets(runs: ClassifiedRun[]) {
     addPace(paceBuckets, r.pace, r.km);
     addTerrain(terrainBuckets, r.terrain, r.km);
     addWeather(weatherBuckets, r.weather, r.km);
-    addTime(timeBuckets, r.timeOfDay, r.km);
+    addTime(timeBuckets, r.timeOfDay, r.km, r.activity.startDateLocal.getHours());
     addSeason(seasonBuckets, r.season, r.km);
   }
   return { paceBuckets, terrainBuckets, weatherBuckets, timeBuckets, seasonBuckets };
+}
+
+/** Prefer Strava id for /run/[id] routes (Strava API expects numeric activity ids). */
+function runLinkId(a: ActivityForNarrative): string {
+  return a.stravaId || a.id;
 }
 
 function buildHighlights(runs: ClassifiedRun[]): GearHighlights {
@@ -296,27 +305,27 @@ function buildHighlights(runs: ClassifiedRun[]): GearHighlights {
     const a = r.activity;
     if (h.fastestSpeed == null || a.averageSpeed > h.fastestSpeed) {
       h.fastestSpeed = a.averageSpeed;
-      h.fastestActivityId = a.id;
+      h.fastestActivityId = runLinkId(a);
     }
     if (h.longestDistanceM == null || a.distance > h.longestDistanceM) {
       h.longestDistanceM = a.distance;
-      h.longestActivityId = a.id;
+      h.longestActivityId = runLinkId(a);
     }
     if (h.maxElevM == null || a.totalElevationGain > h.maxElevM) {
       h.maxElevM = a.totalElevationGain;
-      h.hilliestActivityId = a.id;
+      h.hilliestActivityId = runLinkId(a);
     }
     if (a.weatherPrecipMm != null && (h.maxPrecipMm == null || a.weatherPrecipMm > h.maxPrecipMm)) {
       h.maxPrecipMm = a.weatherPrecipMm;
-      h.wettestActivityId = a.id;
+      h.wettestActivityId = runLinkId(a);
     }
     if (a.weatherTempC != null && (h.minTempC == null || a.weatherTempC < h.minTempC)) {
       h.minTempC = a.weatherTempC;
-      h.coldestActivityId = a.id;
+      h.coldestActivityId = runLinkId(a);
     }
     if (a.weatherTempC != null && (h.maxTempC == null || a.weatherTempC > h.maxTempC)) {
       h.maxTempC = a.weatherTempC;
-      h.hottestActivityId = a.id;
+      h.hottestActivityId = runLinkId(a);
     }
   }
   return h;
@@ -565,7 +574,7 @@ function segmentFromGroup(label: string, group: ClassifiedRun[]): GearLifePathSe
     dominantPace: dominantFromMap([...paceMap.entries()]) as PaceBucket,
     dominantTerrain: dominantFromMap([...terrMap.entries()]) as TerrainBucket,
     dominantWeather: (weaMap.size ? dominantFromMap([...weaMap.entries()]) : 'unknown') as WeatherBucket,
-    activityIds: group.map((g) => g.activity.id),
+    activityIds: group.map((g) => runLinkId(g.activity)),
   };
 }
 

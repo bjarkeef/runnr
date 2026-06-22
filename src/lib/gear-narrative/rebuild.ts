@@ -64,6 +64,7 @@ async function backfillWeather(userId: string): Promise<number> {
 
 function toActivityForNarrative(a: {
   id: string;
+  stravaId: bigint | number | string;
   distance: number;
   movingTime: number;
   averageSpeed: number;
@@ -79,6 +80,7 @@ function toActivityForNarrative(a: {
 }): ActivityForNarrative {
   return {
     id: a.id,
+    stravaId: String(a.stravaId),
     distance: a.distance,
     movingTime: a.movingTime,
     averageSpeed: a.averageSpeed,
@@ -152,6 +154,7 @@ export async function rebuildGearNarratives(userId: string): Promise<{
     },
     select: {
       id: true,
+      stravaId: true,
       gearId: true,
       distance: true,
       movingTime: true,

@@ -99,8 +99,8 @@ function BucketBars({
   data: Record<string, number>;
   labels: Record<string, string>;
 }) {
-  const entries = Object.entries(data).filter(([, v]) => v > 0);
-  const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
+  const entries = Object.entries(data).filter(([k, v]) => k !== 'hourKm' && typeof v === 'number' && v > 0);
+  const total = entries.reduce((s, [, v]) => s + (v as number), 0) || 1;
   if (!entries.length) return null;
   return (
     <Card>
@@ -112,13 +112,150 @@ function BucketBars({
           <div key={k}>
             <div className="flex justify-between text-xs text-muted-foreground mb-0.5">
               <span>{labels[k] ?? k}</span>
-              <span>{v.toFixed(0)} km</span>
+              <span>{(v as number).toFixed(0)} km</span>
             </div>
             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-amber-600/80 rounded-full" style={{ width: `${(v / total) * 100}%` }} />
+              <div className="h-full bg-amber-600/80 rounded-full" style={{ width: `${((v as number) / total) * 100}%` }} />
             </div>
           </div>
         ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Named periods with hour ranges (local time). */
+const TIME_PERIODS = [
+  { key: 'nightKm', label: 'Night', hours: '20–5', color: 'bg-indigo-900/70' },
+  { key: 'dawnKm', label: 'Dawn', hours: '5–8', color: 'bg-amber-300/90' },
+  { key: 'dayKm', label: 'Day', hours: '8–17', color: 'bg-sky-400/90' },
+  { key: 'duskKm', label: 'Dusk', hours: '17–20', color: 'bg-orange-500/90' },
+] as const;
+
+function hourBandColor(h: number): string {
+  if (h >= 5 && h < 8) return 'bg-amber-300/90';
+  if (h >= 8 && h < 17) return 'bg-sky-400/90';
+  if (h >= 17 && h < 20) return 'bg-orange-500/90';
+  return 'bg-indigo-900/70';
+}
+
+function TimeOfDayCard({
+  data,
+}: {
+  data: Record<string, number | number[] | undefined>;
+}) {
+  const named = TIME_PERIODS.map((p) => ({
+    ...p,
+    km: typeof data[p.key] === 'number' ? (data[p.key] as number) : 0,
+  }));
+  const namedTotal = named.reduce((s, p) => s + p.km, 0);
+
+  let hourKm: number[] = Array.isArray(data.hourKm) ? (data.hourKm as number[]) : [];
+  if (hourKm.length !== 24) hourKm = Array(24).fill(0);
+  const hourMax = Math.max(...hourKm, 0.001);
+  const hourTotal = hourKm.reduce((s, v) => s + v, 0);
+  const hasHourData = hourTotal > 0;
+
+  if (namedTotal <= 0 && !hasHourData) return null;
+
+  // Tick marks every 3h; labels at 0, 6, 12, 18
+  const tickHours = [0, 3, 6, 9, 12, 15, 18, 21];
+  const labelHours = new Set([0, 6, 12, 18]);
+
+  return (
+    <Card className="sm:col-span-2">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium">Time of day</CardTitle>
+        <p className="text-xs text-muted-foreground font-normal">
+          Named periods with hour ranges · 24h distance by local start hour
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Named period bars with clock ranges */}
+        <div className="space-y-2">
+          {named
+            .filter((p) => p.km > 0 || namedTotal === 0)
+            .map((p) => (
+              <div key={p.key}>
+                <div className="flex justify-between text-xs text-muted-foreground mb-0.5">
+                  <span>
+                    <span className="font-medium text-foreground">{p.label}</span>
+                    <span className="ml-1.5 tabular-nums opacity-80">{p.hours}</span>
+                  </span>
+                  <span>{p.km.toFixed(0)} km</span>
+                </div>
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${p.color}`}
+                    style={{ width: `${namedTotal ? (p.km / namedTotal) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+        </div>
+
+        {/* 24h histogram */}
+        {hasHourData && (
+          <div className="space-y-1.5 pt-1 border-t border-border/60">
+            <div className="flex justify-between text-[10px] text-muted-foreground uppercase tracking-wide">
+              <span>By hour (local)</span>
+              <span>{hourTotal.toFixed(0)} km total</span>
+            </div>
+            <div className="flex items-end gap-px h-20">
+              {hourKm.map((km, h) => (
+                <div
+                  key={h}
+                  className="flex-1 flex flex-col justify-end min-w-0 group relative"
+                  title={`${String(h).padStart(2, '0')}:00 – ${String((h + 1) % 24).padStart(2, '0')}:00 · ${km.toFixed(1)} km`}
+                >
+                  <div
+                    className={`w-full rounded-t-sm ${hourBandColor(h)} ${km === 0 ? 'opacity-20' : ''}`}
+                    style={{ height: `${Math.max(km > 0 ? 8 : 2, (km / hourMax) * 100)}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+            {/* Hour scale: ticks + labels */}
+            <div className="relative h-5 text-[9px] text-muted-foreground tabular-nums select-none">
+              {tickHours.map((h) => (
+                <span
+                  key={h}
+                  className="absolute top-0 -translate-x-1/2 flex flex-col items-center"
+                  style={{ left: `${((h + 0.5) / 24) * 100}%` }}
+                >
+                  <span className="w-px h-1.5 bg-muted-foreground/50 mb-0.5" />
+                  {labelHours.has(h) ? (
+                    <span>{String(h).padStart(2, '0')}</span>
+                  ) : (
+                    <span className="opacity-0">·</span>
+                  )}
+                </span>
+              ))}
+              <span
+                className="absolute top-0 -translate-x-1/2 flex flex-col items-center"
+                style={{ left: '100%' }}
+              >
+                <span className="w-px h-1.5 bg-muted-foreground/50 mb-0.5" />
+                <span>24</span>
+              </span>
+            </div>
+            {/* Period band legend under clock */}
+            <div className="flex h-1.5 rounded-full overflow-hidden">
+              <div className="bg-indigo-900/70" style={{ width: `${(5 / 24) * 100}%` }} title="Night 0–5" />
+              <div className="bg-amber-300/90" style={{ width: `${(3 / 24) * 100}%` }} title="Dawn 5–8" />
+              <div className="bg-sky-400/90" style={{ width: `${(9 / 24) * 100}%` }} title="Day 8–17" />
+              <div className="bg-orange-500/90" style={{ width: `${(3 / 24) * 100}%` }} title="Dusk 17–20" />
+              <div className="bg-indigo-900/70" style={{ width: `${(4 / 24) * 100}%` }} title="Night 20–24" />
+            </div>
+            <div className="flex justify-between text-[9px] text-muted-foreground">
+              <span>Night</span>
+              <span>Dawn 5–8</span>
+              <span>Day 8–17</span>
+              <span>Dusk 17–20</span>
+              <span>Night</span>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -371,11 +508,7 @@ export default function GearStoryPage({ params }: { params: Promise<{ id: string
               windyKm: 'Windy',
             }}
           />
-          <BucketBars
-            title="Time of day"
-            data={narrative.timeBuckets}
-            labels={{ dawnKm: 'Dawn', dayKm: 'Day', duskKm: 'Dusk', nightKm: 'Night' }}
-          />
+          <TimeOfDayCard data={narrative.timeBuckets} />
         </section>
       )}
 

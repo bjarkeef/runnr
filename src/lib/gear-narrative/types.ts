@@ -1,4 +1,5 @@
-export const NARRATIVE_VERSION = 1;
+/** Bump when stored shape changes so clients/docs know a rebuild is needed */
+export const NARRATIVE_VERSION = 2;
 
 export type NarrativeTone = 'whimsical' | 'serious';
 
@@ -49,6 +50,8 @@ export interface TimeBuckets {
   dayKm: number;
   duskKm: number;
   nightKm: number;
+  /** Distance (km) per local hour 0–23; used for the 24h dial in the UI */
+  hourKm: number[];
 }
 
 export interface SeasonBuckets {
@@ -103,7 +106,10 @@ export interface GearLifePathSegment {
 }
 
 export interface ActivityForNarrative {
+  /** Prisma row id (internal) */
   id: string;
+  /** Strava activity id — use this for /run/[id] links */
+  stravaId: string;
   distance: number;
   movingTime: number;
   averageSpeed: number;
