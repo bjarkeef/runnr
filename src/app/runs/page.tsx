@@ -17,6 +17,9 @@ interface Activity {
     start_date_local: string;
     type?: string; // 'Run', 'Race', etc.
     kudos_count?: number;
+    weather_temp_c?: number | null;
+    weather_code?: number | null;
+    weather_precip_mm?: number | null;
 }
 
 const isRace = (activity: Activity): boolean => {
@@ -376,17 +379,31 @@ export default function RunsPage() {
                                                     <p className="font-semibold text-sm sm:text-base">{formatTime(activity.moving_time)}</p>
                                                 </div>
                                             </div>
-                                            <div className="pt-3 border-t">
+                                            <div className="pt-3 border-t space-y-2">
                                                 <div className="flex justify-between text-xs text-muted-foreground">
                                                     <span>Avg Pace</span>
                                                     <span>{Math.floor((activity.moving_time / 60) / (activity.distance / 1000))}:{Math.round(((activity.moving_time / 60) / (activity.distance / 1000) % 1) * 60).toString().padStart(2, '0')}/km</span>
                                                 </div>
-                                                {activity.kudos_count !== undefined && activity.kudos_count > 0 && (
-                                                    <div className="flex items-center gap-1 mt-2 text-xs text-orange-500">
-                                                        <span>👏</span>
-                                                        <span>{activity.kudos_count} kudo{activity.kudos_count !== 1 ? 's' : ''}</span>
-                                                    </div>
-                                                )}
+                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                    {activity.weather_temp_c != null && (
+                                                        <span className="inline-flex items-center gap-1" title="Temperature at start">
+                                                            <span aria-hidden>🌡</span>
+                                                            <span className="tabular-nums">{Math.round(activity.weather_temp_c)}°C</span>
+                                                        </span>
+                                                    )}
+                                                    {activity.weather_precip_mm != null && activity.weather_precip_mm >= 0.5 && (
+                                                        <span className="inline-flex items-center gap-1" title="Precipitation">
+                                                            <span aria-hidden>🌧</span>
+                                                            <span className="tabular-nums">{activity.weather_precip_mm.toFixed(1)} mm</span>
+                                                        </span>
+                                                    )}
+                                                    {activity.kudos_count !== undefined && activity.kudos_count > 0 && (
+                                                        <span className="inline-flex items-center gap-1 text-orange-500">
+                                                            <span>👏</span>
+                                                            <span>{activity.kudos_count}</span>
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </CardContent>
                                     </Card>

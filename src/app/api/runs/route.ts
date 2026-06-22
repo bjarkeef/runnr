@@ -39,6 +39,9 @@ export async function GET(request: Request) {
             movingTime: true,
             startDateLocal: true,
             kudosCount: true,
+            weatherTempC: true,
+            weatherCode: true,
+            weatherPrecipMm: true,
           },
           where: {
             sportType: 'Run' // Only fetch runs, not other activities
@@ -73,6 +76,9 @@ export async function GET(request: Request) {
         moving_time: activity.movingTime,
         start_date_local: activity.startDateLocal.toISOString(),
         kudos_count: activity.kudosCount,
+        weather_temp_c: activity.weatherTempC,
+        weather_code: activity.weatherCode,
+        weather_precip_mm: activity.weatherPrecipMm,
       })),
       pagination: {
         page,

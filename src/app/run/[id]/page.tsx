@@ -16,6 +16,17 @@ const RunMap = dynamic(() => import('@/components/RunMap'), {
     loading: () => <Skeleton className="h-96 w-full" />,
 });
 
+interface RunWeather {
+    tempC: number | null;
+    weatherCode: number | null;
+    precipMm: number | null;
+    windKmh: number | null;
+    condition: string;
+    icon: string;
+    feelsLike: string | null;
+    fetchedAt?: string | null;
+}
+
 interface Activity {
     id: number;
     name: string;
@@ -32,6 +43,7 @@ interface Activity {
     comment_count: number;
     description?: string;
     calories: number;
+    weather?: RunWeather | null;
     gear?: {
         id: string;
         name: string;
@@ -69,6 +81,24 @@ interface Activity {
         average_speed: number;
         pace_zone: number;
     }[];
+}
+
+function windLabel(windKmh: number | null): string | null {
+    if (windKmh == null) return null;
+    if (windKmh < 5) return 'Calm';
+    if (windKmh < 15) return 'Light breeze';
+    if (windKmh < 25) return 'Moderate';
+    if (windKmh < 40) return 'Strong';
+    return 'Very windy';
+}
+
+function precipLabel(precipMm: number | null): string | null {
+    if (precipMm == null) return null;
+    if (precipMm < 0.1) return 'Dry';
+    if (precipMm < 1) return 'Trace / light';
+    if (precipMm < 3) return 'Light';
+    if (precipMm < 8) return 'Moderate';
+    return 'Heavy';
 }
 
 export default function RunDetailPage() {
@@ -171,6 +201,91 @@ export default function RunDetailPage() {
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* Weather at run start (Open-Meteo, cached on activity) */}
+            {activity.weather && (
+                <Card className="border-l-4 border-l-sky-500/70 overflow-hidden">
+                    <CardHeader className="pb-2 sm:pb-3">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <span className="text-3xl sm:text-4xl leading-none" aria-hidden>
+                                    {activity.weather.icon}
+                                </span>
+                                <div className="min-w-0">
+                                    <CardTitle className="text-base sm:text-lg">Weather</CardTitle>
+                                    <CardDescription className="text-xs sm:text-sm">
+                                        Conditions near start · historical snapshot
+                                    </CardDescription>
+                                </div>
+                            </div>
+                            {activity.weather.tempC != null && (
+                                <div className="text-right flex-shrink-0">
+                                    <p className="text-2xl sm:text-3xl font-bold tabular-nums leading-none">
+                                        {Math.round(activity.weather.tempC)}°
+                                        <span className="text-base font-semibold text-muted-foreground">C</span>
+                                    </p>
+                                    {activity.weather.feelsLike && (
+                                        <p className="text-xs text-muted-foreground mt-1">{activity.weather.feelsLike}</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-sm sm:text-base font-medium">{activity.weather.condition}</p>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="rounded-lg bg-muted/60 p-3">
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Temperature</p>
+                                <p className="text-sm sm:text-base font-semibold tabular-nums">
+                                    {activity.weather.tempC != null
+                                        ? `${activity.weather.tempC.toFixed(1)} °C`
+                                        : '—'}
+                                </p>
+                            </div>
+                            <div className="rounded-lg bg-muted/60 p-3">
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Precipitation</p>
+                                <p className="text-sm sm:text-base font-semibold tabular-nums">
+                                    {activity.weather.precipMm != null
+                                        ? `${activity.weather.precipMm.toFixed(1)} mm`
+                                        : '—'}
+                                </p>
+                                {precipLabel(activity.weather.precipMm) && (
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                        {precipLabel(activity.weather.precipMm)}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="rounded-lg bg-muted/60 p-3">
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Wind</p>
+                                <p className="text-sm sm:text-base font-semibold tabular-nums">
+                                    {activity.weather.windKmh != null
+                                        ? `${activity.weather.windKmh.toFixed(0)} km/h`
+                                        : '—'}
+                                </p>
+                                {windLabel(activity.weather.windKmh) && (
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                        {windLabel(activity.weather.windKmh)}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="rounded-lg bg-muted/60 p-3">
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Code</p>
+                                <p className="text-sm sm:text-base font-semibold tabular-nums">
+                                    {activity.weather.weatherCode != null ? `WMO ${activity.weather.weatherCode}` : '—'}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Open-Meteo</p>
+                            </div>
+                        </div>
+
+                        <p className="text-[10px] sm:text-xs text-muted-foreground leading-relaxed">
+                            Weather is estimated at the activity start time and approximate GPS start location via{' '}
+                            <span className="font-medium">Open-Meteo</span> historical data (hourly resolution). Not
+                            official race weather; may differ slightly from what you felt on course.
+                        </p>
+                    </CardContent>
+                </Card>
             )}
 
             {activity.map.polyline && <RunMap polyline={activity.map.polyline} />}
