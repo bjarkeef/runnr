@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getStoredTokens } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { parseTone, resolveNarrativeSummary, rebuildGearNarrativesSafe } from '@/lib/gear-narrative';
 
 interface MappedShoe {
   id: string;
@@ -11,6 +12,7 @@ interface MappedShoe {
   distance: number;
   primary: boolean;
   retired: boolean;
+  narrativeSummary?: ReturnType<typeof resolveNarrativeSummary>;
 }
 
 export async function GET() {
@@ -22,44 +24,47 @@ export async function GET() {
 
     const { stravaId } = auth;
 
-    // Get user
     const user = await prisma.user.findUnique({
       where: { stravaId },
-      select: { id: true },
+      select: { id: true, gearNarrativeTone: true, gearNarrativeBeta: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    console.log('[Gear API] User cuid:', user.id, 'StravaId:', stravaId);
+    const betaEnabled = user.gearNarrativeBeta ?? false;
 
-    // Get cached gear from database
-    // Try both user.id (cuid) and stravaId.toString() for backward compatibility
     let cachedGear = await prisma.gear.findMany({
       where: { userId: user.id },
-      orderBy: [
-        { primary: 'desc' },
-        { distance: 'desc' }
-      ]
+      include: { narrative: betaEnabled },
+      orderBy: [{ primary: 'desc' }, { distance: 'desc' }],
     });
 
-    // If no gear found with cuid, try with stravaId string (old format)
     if (cachedGear.length === 0) {
       cachedGear = await prisma.gear.findMany({
         where: { userId: stravaId.toString() },
-        orderBy: [
-          { primary: 'desc' },
-          { distance: 'desc' }
-        ]
+        include: { narrative: betaEnabled },
+        orderBy: [{ primary: 'desc' }, { distance: 'desc' }],
       });
-      
-      console.log('[Gear API] Found with stravaId string:', cachedGear.length);
     }
 
-    console.log('[Gear API] Found gear count:', cachedGear.length);
+    // Lazy rebuild only when beta is on
+    if (betaEnabled) {
+      const missingNarratives = cachedGear.some((g) => !g.narrative);
+      if (cachedGear.length > 0 && missingNarratives) {
+        await rebuildGearNarrativesSafe(user.id);
+        cachedGear = await prisma.gear.findMany({
+          where: { userId: user.id },
+          include: { narrative: true },
+          orderBy: [{ primary: 'desc' }, { distance: 'desc' }],
+        });
+      }
+    }
 
-    const shoes: MappedShoe[] = cachedGear.map(gear => ({
+    const tone = parseTone(user.gearNarrativeTone);
+
+    const shoes: MappedShoe[] = cachedGear.map((gear) => ({
       id: gear.id,
       name: gear.name,
       brand_name: gear.brandName ?? undefined,
@@ -68,16 +73,21 @@ export async function GET() {
       distance: gear.distance,
       primary: gear.primary,
       retired: gear.retired,
+      narrativeSummary:
+        betaEnabled && gear.narrative
+          ? resolveNarrativeSummary(gear.narrative, tone)
+          : undefined,
     }));
 
     const response = NextResponse.json({
       shoes,
       totalShoes: shoes.length,
       activeShoes: shoes.filter((s) => !s.retired).length,
+      tone,
+      gearNarrativeBeta: betaEnabled,
     });
 
-    // Cache for 5 minutes
-    response.headers.set('Cache-Control', 'private, max-age=300');
+    response.headers.set('Cache-Control', 'private, no-store');
 
     return response;
   } catch (error) {

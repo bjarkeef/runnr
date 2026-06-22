@@ -19,6 +19,8 @@ export async function GET() {
         createdAt: true,
         updatedAt: true,
         lastSyncedAt: true,
+        gearNarrativeTone: true,
+        gearNarrativeBeta: true,
         _count: {
           select: {
             activities: true,
@@ -106,6 +108,11 @@ export async function GET() {
       buildDate: '2025-11-09', // Last build date
       environment: process.env.NODE_ENV,
       
+      preferences: {
+        gearNarrativeTone: user.gearNarrativeTone ?? 'whimsical',
+        gearNarrativeBeta: user.gearNarrativeBeta ?? false,
+      },
+
       user: {
         id: user.id,
         stravaId: user.stravaId,
@@ -116,6 +123,8 @@ export async function GET() {
         memberSince: user.createdAt,
         lastUpdated: user.updatedAt,
         lastSynced: user.lastSyncedAt,
+        gearNarrativeTone: user.gearNarrativeTone ?? 'whimsical',
+        gearNarrativeBeta: user.gearNarrativeBeta ?? false,
         
         stats: {
           totalActivities: user._count.activities,
@@ -183,5 +192,59 @@ export async function GET() {
   } catch (error) {
     console.error('Settings API error:', error);
     return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const auth = await getAuthenticatedUser();
+    if (!auth.success) {
+      return auth.response;
+    }
+
+    const body = await request.json();
+    const data: { gearNarrativeTone?: string; gearNarrativeBeta?: boolean } = {};
+
+    if (body?.gearNarrativeTone !== undefined) {
+      if (body.gearNarrativeTone !== 'whimsical' && body.gearNarrativeTone !== 'serious') {
+        return NextResponse.json(
+          { error: 'gearNarrativeTone must be "whimsical" or "serious"' },
+          { status: 400 }
+        );
+      }
+      data.gearNarrativeTone = body.gearNarrativeTone;
+    }
+
+    if (body?.gearNarrativeBeta !== undefined) {
+      if (typeof body.gearNarrativeBeta !== 'boolean') {
+        return NextResponse.json(
+          { error: 'gearNarrativeBeta must be a boolean' },
+          { status: 400 }
+        );
+      }
+      data.gearNarrativeBeta = body.gearNarrativeBeta;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json(
+        { error: 'No valid preference fields provided' },
+        { status: 400 }
+      );
+    }
+
+    const user = await prisma.user.update({
+      where: { stravaId: auth.stravaId },
+      data,
+      select: { gearNarrativeTone: true, gearNarrativeBeta: true },
+    });
+
+    return NextResponse.json({
+      success: true,
+      gearNarrativeTone: user.gearNarrativeTone,
+      gearNarrativeBeta: user.gearNarrativeBeta,
+    });
+  } catch (error) {
+    console.error('Settings PATCH error:', error);
+    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
   }
 }
