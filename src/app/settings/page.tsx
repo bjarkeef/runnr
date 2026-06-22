@@ -13,6 +13,10 @@ interface SettingsData {
     version: string;
     buildDate: string;
     environment: string;
+    preferences?: {
+        gearNarrativeTone?: 'whimsical' | 'serious';
+        gearNarrativeBeta?: boolean;
+    };
     user: {
         id: string;
         stravaId: number;
@@ -23,6 +27,8 @@ interface SettingsData {
         memberSince: string;
         lastUpdated: string;
         lastSynced: string | null;
+        gearNarrativeTone?: 'whimsical' | 'serious';
+        gearNarrativeBeta?: boolean;
         stats: {
             totalActivities: number;
             totalRaceGoals: number;
@@ -84,6 +90,51 @@ export default function SettingsPage() {
     const [data, setData] = useState<SettingsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [prefsSaving, setPrefsSaving] = useState(false);
+
+    const gearTone =
+        data?.preferences?.gearNarrativeTone ??
+        data?.user?.gearNarrativeTone ??
+        'whimsical';
+
+    const gearBeta =
+        data?.preferences?.gearNarrativeBeta ??
+        data?.user?.gearNarrativeBeta ??
+        false;
+
+    const patchPreferences = async (patch: {
+        gearNarrativeTone?: 'whimsical' | 'serious';
+        gearNarrativeBeta?: boolean;
+    }) => {
+        try {
+            setPrefsSaving(true);
+            const res = await fetch('/api/settings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(patch),
+            });
+            if (!res.ok) throw new Error('Failed to save');
+            setData((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          preferences: { ...prev.preferences, ...patch },
+                          user: { ...prev.user, ...patch },
+                      }
+                    : prev
+            );
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setPrefsSaving(false);
+        }
+    };
+
+    const setGearTone = (tone: 'whimsical' | 'serious') =>
+        patchPreferences({ gearNarrativeTone: tone });
+
+    const setGearBeta = (enabled: boolean) =>
+        patchPreferences({ gearNarrativeBeta: enabled });
 
     useEffect(() => {
         async function fetchSettings() {
@@ -155,6 +206,78 @@ export default function SettingsPage() {
                     Your account, app info, and database statistics
                 </p>
             </div>
+
+            {/* Gear stories beta */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 flex-wrap">
+                        👟 Gear stories
+                        <Badge variant="secondary" className="text-xs font-normal">Beta</Badge>
+                    </CardTitle>
+                    <CardDescription>
+                        Experimental shoe narratives — nicknames, life paths, weather, and memoir chapters beyond the mileage bar. Off by default; nothing narrative runs until you opt in.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-4 bg-muted/30">
+                        <div className="space-y-1">
+                            <p className="text-sm font-medium">Enable Gear Stories (beta)</p>
+                            <p className="text-xs text-muted-foreground max-w-md">
+                                When on: nicknames and stories appear on the gear page, story detail routes work, and narratives rebuild on sync. When off: classic mileage tracking only.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={gearBeta}
+                            disabled={prefsSaving}
+                            onClick={() => setGearBeta(!gearBeta)}
+                            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 disabled:opacity-50 ${
+                                gearBeta ? 'bg-amber-700' : 'bg-muted-foreground/30'
+                            }`}
+                        >
+                            <span
+                                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform ${
+                                    gearBeta ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                            />
+                        </button>
+                    </div>
+
+                    <div className={gearBeta ? '' : 'opacity-50 pointer-events-none'}>
+                        <p className="text-sm font-medium mb-2">Story tone</p>
+                        <div className="inline-flex rounded-lg border p-1 gap-1">
+                            <button
+                                type="button"
+                                disabled={prefsSaving || !gearBeta}
+                                onClick={() => setGearTone('whimsical')}
+                                className={`px-4 py-2 rounded-md text-sm transition-colors ${
+                                    gearTone === 'whimsical'
+                                        ? 'bg-amber-700 text-white'
+                                        : 'hover:bg-muted'
+                                }`}
+                            >
+                                Whimsical
+                            </button>
+                            <button
+                                type="button"
+                                disabled={prefsSaving || !gearBeta}
+                                onClick={() => setGearTone('serious')}
+                                className={`px-4 py-2 rounded-md text-sm transition-colors ${
+                                    gearTone === 'serious'
+                                        ? 'bg-amber-700 text-white'
+                                        : 'hover:bg-muted'
+                                }`}
+                            >
+                                Simple / serious
+                            </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                            Example: whimsical &quot;Mud Goblin&quot; vs serious &quot;All-Weather Runner&quot;. Each shoe still gets a unique nickname.
+                        </p>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* User Profile Card */}
             <Card>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAllActivities, getGearSafe, StravaActivity } from '@/lib/strava';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUser } from '@/lib/auth';
+import { rebuildGearNarrativesSafe } from '@/lib/gear-narrative';
 
 async function fetchAndCacheGear(gearId: string, accessToken: string, userId: string) {
   try {
@@ -165,6 +166,15 @@ export async function POST() {
       where: { id: user.id },
       data: { lastSyncedAt: new Date() },
     });
+
+    // Derive gear stories only for beta opt-in users; non-fatal
+    const prefs = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { gearNarrativeBeta: true },
+    });
+    if (prefs?.gearNarrativeBeta) {
+      await rebuildGearNarrativesSafe(user.id);
+    }
 
     return NextResponse.json({
       success: true,

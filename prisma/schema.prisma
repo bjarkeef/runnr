@@ -13,20 +13,23 @@ datasource db {
 
 // User model - stores Strava auth data
 model User {
-  id             String   @id @default(cuid())
-  stravaId       Int      @unique
-  accessToken    String
-  refreshToken   String
-  tokenExpiry    BigInt
-  lastSyncedAt   DateTime? // Last time runs were synced from Strava
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String   @id @default(cuid())
+  stravaId          Int      @unique
+  accessToken       String
+  refreshToken      String
+  tokenExpiry       BigInt
+  lastSyncedAt      DateTime? // Last time runs were synced from Strava
+  gearNarrativeTone String   @default("whimsical") // "whimsical" | "serious"
+  gearNarrativeBeta Boolean  @default(false) // opt-in beta: Shoe Story / gear narrative
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // Relations
-  raceGoals     RaceGoal[]
-  trainingPlans TrainingPlan[]
-  activities    Activity[]
-  gear          Gear[]
+  raceGoals      RaceGoal[]
+  trainingPlans  TrainingPlan[]
+  activities     Activity[]
+  gear           Gear[]
+  gearNarratives GearNarrative[]
 }
 
 // Race Goal model - stores user's race goals
@@ -132,6 +135,11 @@ model Activity {
   endLatlng           Json?    // [lat, lng]
   kudosCount          Int      @default(0) // Number of kudos on activity
   gearId              String?  // Strava gear ID (e.g., shoes)
+  weatherTempC        Float?
+  weatherCode         Int?     // WMO code from Open-Meteo
+  weatherPrecipMm     Float?
+  weatherWindKmh      Float?
+  weatherFetchedAt    DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -144,6 +152,7 @@ model Activity {
   @@index([userId, startDate])
   @@index([userId, sportType, startDate]) // Composite index for filtered queries
   @@index([stravaId]) // Faster lookups during sync
+  @@index([userId, gearId])
 }
 
 // Gear model - stores cached Strava gear (shoes, bikes)
@@ -161,7 +170,41 @@ model Gear {
   updatedAt     DateTime @updatedAt
 
   // Relations
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  narrative GearNarrative?
+
+  @@index([userId])
+}
+
+// GearNarrative - materialized shoe/gear story derived from activities
+model GearNarrative {
+  id             String   @id @default(cuid())
+  gearId         String   @unique
+  userId         String
+  archetypeKey   String
+  nicknameKey    String
+  traitKeys      Json     // string[]
+  firstRunAt     DateTime?
+  lastRunAt      DateTime?
+  runCount       Int      @default(0)
+  totalDistanceM Float    @default(0)
+  paceBuckets    Json
+  terrainBuckets Json
+  weatherBuckets Json
+  timeBuckets    Json
+  seasonBuckets  Json
+  chapters       Json
+  milestones     Json
+  highlights     Json
+  lifePath       Json
+  version        Int      @default(1)
+  computedAt     DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  gear Gear @relation(fields: [gearId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, nicknameKey])
   @@index([userId])
 }
