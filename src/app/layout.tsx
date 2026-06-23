@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/context/UserContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import Header from "@/components/Header";
 import PWARegistration from "@/components/PWARegistration";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -15,6 +16,9 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+/** Runs before paint so preferred/saved theme applies without a flash. */
+const themeInitScript = `(function(){try{var k='runnr-theme';var t=localStorage.getItem(k);if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}var r=document.documentElement;if(t==='dark')r.classList.add('dark');else r.classList.remove('dark');r.style.colorScheme=t;}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: "Runnr - Your Personalized Strava Dashboard",
@@ -77,8 +81,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         {/* PWA Meta Tags */}
         <meta name="application-name" content="Runnr" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -114,12 +119,14 @@ export default function RootLayout({
           userSelect: 'none'
         }}
       >
-        <UserProvider>
-          <PWARegistration />
-          <InstallPrompt />
-          <Header />
-          <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 pb-safe min-h-screen">{children}</main>
-        </UserProvider>
+        <ThemeProvider>
+          <UserProvider>
+            <PWARegistration />
+            <InstallPrompt />
+            <Header />
+            <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 pb-safe min-h-screen">{children}</main>
+          </UserProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

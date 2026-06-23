@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents, useMap } from 'react-leaflet';
-import { LatLngExpression, LatLng } from 'leaflet';
+import { LatLngExpression, LatLng, LatLngBounds } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for default markers in react-leaflet
 import L from 'leaflet';
-// leaflet's types don't expose _getIconUrl on the prototype
-delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
+// @ts-expect-error leaflet's types don't expose _getIconUrl
+delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
@@ -18,6 +18,7 @@ interface RouteData {
   distance: number;
   duration: number;
   instructions?: string[];
+  type?: 'loop' | 'out-and-back';
 }
 
 interface RoutePlannerMapProps {
@@ -26,7 +27,6 @@ interface RoutePlannerMapProps {
   onLocationSelect: (latlng: LatLng) => void;
 }
 
-// Component to handle map clicks
 function MapClickHandler({ onLocationSelect }: { onLocationSelect: (latlng: LatLng) => void }) {
   useMapEvents({
     click: (e) => {
@@ -36,38 +36,52 @@ function MapClickHandler({ onLocationSelect }: { onLocationSelect: (latlng: LatL
   return null;
 }
 
+function Recenter({ center }: { center: LatLngExpression }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center);
+  }, [center, map]);
+  return null;
+}
+
+/** Fit the map to the full route once it arrives */
+function FitRouteBounds({ geometry }: { geometry: [number, number][] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!geometry || geometry.length < 2) return;
+    const bounds = new LatLngBounds(geometry.map(([lat, lng]) => [lat, lng] as [number, number]));
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+  }, [geometry, map]);
+
+  return null;
+}
+
 export default function RoutePlannerMap({ startLocation, route, onLocationSelect }: RoutePlannerMapProps) {
-  // Default map center from environment (fallback to Odense, Denmark)
-  const defaultCenter: LatLngExpression = [
-    parseFloat(process.env.NEXT_PUBLIC_ROUTE_PLANNER_LAT || '55.4038'),
-    parseFloat(process.env.NEXT_PUBLIC_ROUTE_PLANNER_LNG || '10.4024'),
-  ];
+  const defaultCenter: LatLngExpression = useMemo(
+    () => [
+      parseFloat(process.env.NEXT_PUBLIC_ROUTE_PLANNER_LAT || '55.4038'),
+      parseFloat(process.env.NEXT_PUBLIC_ROUTE_PLANNER_LNG || '10.4024'),
+    ],
+    []
+  );
   const [mapCenter, setMapCenter] = useState<LatLngExpression>(defaultCenter);
 
-  // choose initial start location once
+  // Default start at map center on first load only
   useEffect(() => {
     if (!startLocation) {
-      onLocationSelect(new LatLng(defaultCenter[0], defaultCenter[1]));
+      const [lat, lng] = defaultCenter as [number, number];
+      onLocationSelect(new LatLng(lat, lng));
     }
-    // only run on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // whenever the start location changes, recenter map
+  // Recenter when start changes and there is no active route yet
   useEffect(() => {
-    if (startLocation) {
+    if (startLocation && !route) {
       setMapCenter([startLocation.lat, startLocation.lng]);
     }
-  }, [startLocation]);
-
-  // keep map view in sync with mapCenter state
-  function Recenter({ center }: { center: LatLngExpression }) {
-    const map = useMap();
-    useEffect(() => {
-      map.setView(center);
-    }, [center, map]);
-    return null;
-  }
+  }, [startLocation, route]);
 
   return (
     <MapContainer
@@ -81,26 +95,31 @@ export default function RoutePlannerMap({ startLocation, route, onLocationSelect
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
       />
 
-      <Recenter center={mapCenter} />
+      {!route && <Recenter center={mapCenter} />}
+      {route?.geometry && route.geometry.length >= 2 && (
+        <FitRouteBounds geometry={route.geometry} />
+      )}
       <MapClickHandler onLocationSelect={onLocationSelect} />
 
       {startLocation && (
         <Marker position={startLocation}>
           <Popup>
             <div className="text-sm">
-              <strong>Start Location</strong><br />
+              <strong>Start</strong>
+              <br />
               {startLocation.lat.toFixed(4)}, {startLocation.lng.toFixed(4)}
             </div>
           </Popup>
         </Marker>
       )}
 
-      {route && (
+      {route?.geometry && route.geometry.length >= 2 && (
         <Polyline
+          key={`route-${route.geometry.length}-${route.distance}`}
           positions={route.geometry}
           color="#FC4C02"
-          weight={4}
-          opacity={0.8}
+          weight={5}
+          opacity={0.9}
         />
       )}
     </MapContainer>

@@ -6,20 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, MapPin, Route, Target, RotateCcw } from 'lucide-react';
+import { Loader2, MapPin, Route, Target, RotateCcw, Shuffle } from 'lucide-react';
 import { LatLng } from 'leaflet';
 
 interface RouteData {
   geometry: [number, number][];
-  distance: number; // in meters
-  duration: number; // in seconds
+  distance: number;
+  duration: number;
   instructions?: string[];
+  type?: 'loop' | 'out-and-back';
+  accuracy?: number;
 }
 
 interface RouteStats {
   distance: number;
   duration: number;
-  elevation?: number;
 }
 
 // Dynamically import the map component to avoid SSR issues
@@ -35,37 +36,38 @@ const RoutePlannerMap = dynamic(() => import('./RoutePlannerMap'), {
   ),
 });
 
+const runningDistances = [
+  { value: 3, label: '3K Fun Run' },
+  { value: 5, label: '5K' },
+  { value: 8, label: '8K' },
+  { value: 10, label: '10K' },
+  { value: 12, label: '12K' },
+  { value: 15, label: '15K' },
+  { value: 16.1, label: '10 Miles' },
+  { value: 21.1, label: 'Half Marathon' },
+  { value: 26.2, label: 'Marathon' },
+  { value: 30, label: '30K' },
+  { value: 42.2, label: 'Ultra (42K)' },
+];
+
 export default function RoutePlannerContent() {
   const [startLocation, setStartLocation] = useState<LatLng | null>(null);
   const [targetDistance, setTargetDistance] = useState<number>(5); // km
+  const [variant, setVariant] = useState(0);
   const [route, setRoute] = useState<RouteData | null>(null);
   const [routeStats, setRouteStats] = useState<RouteStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Common running distances in km
-  const runningDistances = [
-    { value: 3, label: '3K Fun Run' },
-    { value: 5, label: '5K' },
-    { value: 8, label: '8K' },
-    { value: 10, label: '10K' },
-    { value: 12, label: '12K' },
-    { value: 15, label: '15K' },
-    { value: 16.1, label: '10 Miles' },
-    { value: 21.1, label: 'Half Marathon' },
-    { value: 26.2, label: 'Marathon' },
-    { value: 30, label: '30K' },
-    { value: 42.2, label: 'Ultra (42K)' },
-  ];
 
   const handleLocationSelect = useCallback((latlng: LatLng) => {
     setStartLocation(latlng);
     setRoute(null);
     setRouteStats(null);
     setError(null);
+    setVariant(0);
   }, []);
 
-  const generateRoute = async () => {
+  const requestRoute = async (variantIndex: number) => {
     if (!startLocation) {
       setError('Please select a starting location on the map');
       return;
@@ -77,29 +79,34 @@ export default function RoutePlannerContent() {
     try {
       const response = await fetch('/api/route-planner', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           startLat: startLocation.lat,
           startLng: startLocation.lng,
-          targetDistance: targetDistance * 1000, // Convert km to meters
+          targetDistance: targetDistance * 1000,
+          variant: variantIndex,
         }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to generate route');
+        throw new Error(data.error || 'Failed to generate route');
       }
 
-      const data = await response.json();
       setRoute(data.route);
       setRouteStats(data.stats);
+      setVariant(variantIndex);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate route');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const generateRoute = () => requestRoute(variant);
+
+  const tryAnotherRoute = () => requestRoute(variant + 1);
 
   const clearRoute = () => {
     setRoute(null);
@@ -110,21 +117,15 @@ export default function RoutePlannerContent() {
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
+    if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
   };
 
-  const formatDistance = (meters: number) => {
-    const km = meters / 1000;
-    return `${km.toFixed(2)} km`;
-  };
+  const formatDistance = (meters: number) => `${(meters / 1000).toFixed(2)} km`;
 
   return (
     <div className="container mx-auto p-4 max-w-7xl">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Controls Panel */}
         <div className="lg:col-span-1 space-y-4">
           <Card>
             <CardHeader>
@@ -134,26 +135,25 @@ export default function RoutePlannerContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label htmlFor="distance" className="text-sm font-medium">
-                  Target Distance
-                </label>
-                <Badge variant="secondary" className="ml-2">
-                  WIP
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground mb-2">
-                Experimental feature; loops are approximate and may not be perfect.
+              <p className="text-xs text-muted-foreground">
+                Click the map to set your start, pick a distance, then generate a loop on real roads.
+                Same location + distance always yields the same route; use &quot;Another route&quot; for a different direction.
               </p>
+
               <div>
                 <label htmlFor="distance" className="text-sm font-medium">
                   Target Distance
                 </label>
                 <Select
                   value={targetDistance.toString()}
-                  onValueChange={(value) => setTargetDistance(parseFloat(value))}
+                  onValueChange={(value) => {
+                    setTargetDistance(parseFloat(value));
+                    setRoute(null);
+                    setRouteStats(null);
+                    setVariant(0);
+                  }}
                 >
-                  <SelectTrigger className="mt-2">
+                  <SelectTrigger className="mt-2" id="distance">
                     <SelectValue placeholder="Select distance" />
                   </SelectTrigger>
                   <SelectContent>
@@ -206,11 +206,24 @@ export default function RoutePlannerContent() {
                 <Button
                   variant="outline"
                   onClick={clearRoute}
-                  disabled={!route}
+                  disabled={!route || isLoading}
+                  title="Clear route"
                 >
                   <RotateCcw className="h-4 w-4" />
                 </Button>
               </div>
+
+              {route && (
+                <Button
+                  variant="secondary"
+                  onClick={tryAnotherRoute}
+                  disabled={!startLocation || isLoading}
+                  className="w-full"
+                >
+                  <Shuffle className="h-4 w-4 mr-2" />
+                  Another route
+                </Button>
+              )}
 
               {error && (
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
@@ -220,8 +233,7 @@ export default function RoutePlannerContent() {
             </CardContent>
           </Card>
 
-          {/* Route Stats */}
-          {routeStats && (
+          {routeStats && route && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Route Statistics</CardTitle>
@@ -232,13 +244,21 @@ export default function RoutePlannerContent() {
                   <Badge variant="secondary">{formatDistance(routeStats.distance)}</Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Duration</span>
+                  <span className="text-sm text-muted-foreground">Est. duration</span>
                   <Badge variant="secondary">{formatDuration(routeStats.duration)}</Badge>
                 </div>
-                {routeStats.elevation && (
+                {route.type && (
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Elevation</span>
-                    <Badge variant="secondary">{routeStats.elevation}m</Badge>
+                    <span className="text-sm text-muted-foreground">Type</span>
+                    <Badge variant="outline">
+                      {route.type === 'loop' ? 'Loop' : 'Out & back'}
+                    </Badge>
+                  </div>
+                )}
+                {route.accuracy != null && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">vs target</span>
+                    <Badge variant="outline">{(route.accuracy * 100).toFixed(0)}%</Badge>
                   </div>
                 )}
               </CardContent>
@@ -246,7 +266,6 @@ export default function RoutePlannerContent() {
           )}
         </div>
 
-        {/* Map */}
         <div className="lg:col-span-2">
           <Card className="h-[600px]">
             <CardContent className="p-0 h-full">
