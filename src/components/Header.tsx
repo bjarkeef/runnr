@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import ThemeToggle from '@/components/ThemeToggle';
 import { Menu } from 'lucide-react';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
@@ -69,6 +70,7 @@ export default function Header() {
         
         {loading ? (
           <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-9 rounded-md" />
             <Skeleton className="h-8 w-20" />
             <Skeleton className="h-10 w-10 rounded-full" />
           </div>
@@ -77,7 +79,8 @@ export default function Header() {
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-2">
               <NavigationItems mobile={false} />
-              <Link href="/settings" className="ml-2">
+              <ThemeToggle className="ml-1" />
+              <Link href="/settings">
                 <Avatar className="cursor-pointer hover:ring-2 hover:ring-primary transition-all">
                   <AvatarImage src={user.profile_medium} alt={`${user.firstname} ${user.lastname}`} />
                   <AvatarFallback>{user.firstname.charAt(0)}{user.lastname.charAt(0)}</AvatarFallback>
@@ -86,7 +89,8 @@ export default function Header() {
             </div>
 
             {/* Mobile Navigation */}
-            <div className="flex md:hidden items-center gap-3">
+            <div className="flex md:hidden items-center gap-2">
+              <ThemeToggle />
               <Link href="/settings">
                 <Avatar className="cursor-pointer hover:ring-2 hover:ring-primary transition-all">
                   <AvatarImage src={user.profile_medium} alt={`${user.firstname} ${user.lastname}`} />
@@ -121,9 +125,12 @@ export default function Header() {
             </div>
           </>
         ) : (
-          <Button asChild size="sm">
-            <a href="/api/auth/login">Login with Strava</a>
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button asChild size="sm">
+              <a href="/api/auth/login">Login with Strava</a>
+            </Button>
+          </div>
         )}
       </nav>
     </header>
