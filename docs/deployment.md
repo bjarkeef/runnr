@@ -51,7 +51,7 @@ Both `DATABASE_URL` and `DIRECT_URL` are required on Vercel. Prisma uses `DIRECT
 
 ## 5. Migrations On Every Deploy
 
-Migrations run **automatically** during `npm run build` when `VERCEL=1` (set by Vercel) or `CI=true`:
+Migrations run **automatically** during `npm run build` when `VERCEL=1` (set by Vercel):
 
 1. `prisma migrate deploy` — applies any pending SQL in `prisma/migrations/`
 2. `prisma generate` — generates the Prisma client
@@ -59,7 +59,7 @@ Migrations run **automatically** during `npm run build` when `VERCEL=1` (set by 
 
 If a migration fails, the **build fails** and the bad deploy is not shipped. That is intentional: schema and code stay in lockstep.
 
-Local builds skip migrate by default. To force it locally:
+Local builds and GitHub Actions **skip migrate** by default (no production DB in PR CI). To force migrate locally:
 
 ```bash
 RUN_DB_MIGRATE=1 npm run build
@@ -67,7 +67,25 @@ RUN_DB_MIGRATE=1 npm run build
 npm run db:migrate
 ```
 
-## 6. Verify
+Set `SKIP_DB_MIGRATE=1` to force-skip even on Vercel (rarely needed).
+
+## 6. GitHub Actions CI
+
+Pushes and PRs targeting `main` run `.github/workflows/ci.yml`:
+
+1. **quality** — `prisma validate`, `eslint`, `tsc --noEmit`
+2. **build** — `npm run build` with dummy DB URLs and **no** migrate
+
+Vercel remains the deploy path (preview on PRs, production on `main`). Enable branch protection on `main` and require the **CI** checks for a real merge gate.
+
+Local equivalent:
+
+```bash
+npm run ci          # validate + lint + typecheck
+npm run build       # app build (skips migrate unless VERCEL/RUN_DB_MIGRATE)
+```
+
+## 7. Verify
 
 - Open app and complete Strava login
 - Trigger run sync and verify data appears

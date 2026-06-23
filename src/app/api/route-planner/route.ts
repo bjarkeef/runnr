@@ -10,21 +10,34 @@ interface RouteRequest {
   targetDistance: number; // in meters
 }
 
-interface ORSRoute {
-  geometry: {
-    coordinates: [number, number][];
-  };
-  properties: {
-    segments: Array<{
-      distance: number;
-      duration: number;
-      steps: Array<{
-        instruction: string;
-        distance: number;
-        duration: number;
-      }>;
-    }>;
-  };
+interface ORSStep {
+  instruction: string;
+  distance?: number;
+  duration?: number;
+}
+
+interface ORSSegment {
+  distance?: number;
+  duration?: number;
+  steps?: ORSStep[];
+}
+
+interface ORSRouteCandidate {
+  geometry: string;
+  summary?: { distance?: number; duration?: number };
+  segments?: ORSSegment[];
+}
+
+interface ORSDirectionsResponse {
+  routes?: ORSRouteCandidate[];
+}
+
+interface DirectionsRequestBody {
+  coordinates: [number, number][];
+  format: 'geojson';
+  instructions: boolean;
+  geometry_simplify: boolean;
+  options: { avoid_features: string[] };
 }
 
 export async function POST(request: Request) {
@@ -47,7 +60,7 @@ export async function POST(request: Request) {
 
     console.log('Route request:', { startLat, startLng, targetDistance });
 
-    let bestRoute: any = null;
+    let bestRoute: ORSRouteCandidate | null = null;
     let bestDifference = Infinity;
     let bestDistance = 0;
     let isOutAndBack = false;
@@ -68,9 +81,9 @@ export async function POST(request: Request) {
 
       const p1 = pointFor(bearing1);
       const p2 = pointFor(bearing2);
-      const coords = [[startLng, startLat], p1, p2, [startLng, startLat]];
+      const coords: [number, number][] = [[startLng, startLat], p1, p2, [startLng, startLat]];
 
-      const body: any = {
+      const body: DirectionsRequestBody = {
         coordinates: coords,
         format: 'geojson',
         instructions: true,
@@ -99,7 +112,7 @@ export async function POST(request: Request) {
             console.warn('manual loop request failed', { attempt, len, status: res.status, body });
             continue;
           }
-          const data: any = await res.json();
+          const data = (await res.json()) as ORSDirectionsResponse;
           if (data.routes && data.routes.length > 0) {
             const candidate = data.routes[0];
             const distance = candidate.summary?.distance || 0;
@@ -159,7 +172,7 @@ export async function POST(request: Request) {
           });
 
           if (testResponse.ok) {
-            const testData: any = await testResponse.json();
+            const testData = (await testResponse.json()) as ORSDirectionsResponse;
             if (testData.routes && testData.routes.length > 0) {
               const testRoute = testData.routes[0];
               const oneWayDistance = testRoute.summary?.distance || 0;
@@ -193,17 +206,18 @@ export async function POST(request: Request) {
     }
 
     // bestRoute is now defined (either loop or out-and-back)
+    const selectedRoute = bestRoute!;
 
     // log summary info
     console.log('Best route found:', {
       targetDistance,
-      actualDistance: isOutAndBack ? bestDistance * 2 : bestRoute.summary?.distance,
+      actualDistance: isOutAndBack ? bestDistance * 2 : selectedRoute.summary?.distance,
       difference: bestDifference,
       type: isOutAndBack ? 'out-and-back' : 'loop',
     });
 
     // Decode the polyline geometry
-    const decodedCoordinates = polyline.decode(bestRoute.geometry);
+    const decodedCoordinates = polyline.decode(selectedRoute.geometry);
 
     let finalRoute;
     let stats;
@@ -217,12 +231,12 @@ export async function POST(request: Request) {
       if (first[0] !== last[0] || first[1] !== last[1]) {
         loopGeom = [...loopGeom, first];
       }
-      const routeDuration = bestRoute.summary?.duration || 0;
+      const routeDuration = selectedRoute.summary?.duration || 0;
       const totalDistance = bestDistance * 2;
       const totalDuration = routeDuration * 2;
       const instructions = [
-        ...(bestRoute.segments?.flatMap((segment: any) =>
-          segment.steps?.map((step: any) => step.instruction) || []
+        ...(selectedRoute.segments?.flatMap((segment) =>
+          segment.steps?.map((step) => step.instruction) || []
         ) || []),
         'Turn around and return the same way'
       ];
@@ -236,11 +250,11 @@ export async function POST(request: Request) {
       stats = { distance: totalDistance, duration: totalDuration };
     } else {
       // direct loop returned from ORS
-      const routeDistance = bestRoute.summary?.distance || 0;
-      const routeDuration = bestRoute.summary?.duration || 0;
+      const routeDistance = selectedRoute.summary?.distance || 0;
+      const routeDuration = selectedRoute.summary?.duration || 0;
       const instructions =
-        bestRoute.segments?.flatMap((segment: any) =>
-          segment.steps?.map((step: any) => step.instruction) || []
+        selectedRoute.segments?.flatMap((segment) =>
+          segment.steps?.map((step) => step.instruction) || []
         ) || [];
       finalRoute = {
         geometry: decodedCoordinates,

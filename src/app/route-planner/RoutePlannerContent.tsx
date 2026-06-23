@@ -138,7 +138,7 @@ export default function RoutePlannerContent() {
                 <label htmlFor="distance" className="text-sm font-medium">
                   Target Distance
                 </label>
-                <Badge variant="warning" className="ml-2">
+                <Badge variant="secondary" className="ml-2">
                   WIP
                 </Badge>
               </div>
