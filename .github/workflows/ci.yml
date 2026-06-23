@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Dummy URLs for install/generate only — no live DB in PR CI.
+# postinstall runs `prisma generate`, which loads prisma.config.ts.
+env:
+  DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci?schema=public
+  DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci?schema=public
+
+jobs:
+  quality:
+    name: Lint, typecheck & validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npm run db:validate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+  build:
+    name: Next.js build (no DB migrate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: quality
+
+    env:
+      SKIP_DB_MIGRATE: "1"
+      NEXT_PUBLIC_ROUTE_PLANNER_LAT: "55.4038"
+      NEXT_PUBLIC_ROUTE_PLANNER_LNG: "10.4024"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build

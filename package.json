@@ -10,7 +10,10 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate --no-engine",
-    "lint": "eslint",
+    "db:validate": "prisma validate",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run db:validate && npm run lint && npm run typecheck",
     "postinstall": "prisma generate --no-engine"
   },
   "dependencies": {

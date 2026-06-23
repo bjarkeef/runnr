@@ -97,6 +97,7 @@ export function calculateStats(
             avgDistance: 0,
             avgPace: 0,
             longestRun: { distance: 0, date: '', id: 0 },
+            fastestRun: { pace: 0, time: 0, distance: 0, date: '', id: 0 },
             currentStreak: 0,
             longestStreak: 0,
             bestMonth: { month: '', distance: 0 },
