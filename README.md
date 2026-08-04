@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Next.js](https://img.shields.io/badge/Next.js-15-informational?logo=nextdotjs)](https://nextjs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-%233178C6.svg?logo=typescript)](https://www.typescriptlang.org/)
 
+> ⚠️ **Strava API now requires a paid subscription.** As of June 30, 2026, Strava requires Standard Tier API developers to hold an active paid Strava subscription (~$11.99/month, varies by country) to create or maintain API access. This means you'll need a paid Strava account to obtain `STRAVA_CLIENT_ID`/`STRAVA_CLIENT_SECRET` and run Runnr against the live Strava API. See [Strava's developer update](https://developers.strava.com) for current terms.
+
 Runnr is a Strava-connected running dashboard built with Next.js and TypeScript.
 
 It helps you track training consistency, visualize routes, monitor gear, and generate race predictions from your run history.
